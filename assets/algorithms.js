@@ -905,6 +905,29 @@
       ),
     }),
     page({
+      id: "sequence-primer",
+      title: "Primer: Before Attention",
+      category: "neural",
+      engine: "sequence-primer",
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Part 1 of 4",
+        heading: "Before attention: the building blocks",
+        meta: ["9 chapters", "≈ 20 min read", "Live tokenizer from GPT-2 and GPT-4", "5 editable widgets"],
+      },
+      subtitle: "Tokens, embeddings, dot products, softmax and the RNNs that came before: everything the Attention guide assumes, with widgets you can edit.",
+      summary:
+        "Tokens, embeddings, dot products, softmax and the RNNs that came before: everything the Attention guide assumes, with widgets you can edit.",
+      detail: details(
+        "Language models read token IDs, turn them into learned vectors, compare vectors with dot products and turn scores into probabilities with softmax. Before Transformers, recurrent networks read text one token at a time, which made them forget over long distances and impossible to parallelise; attention was first added to them to fix a translation bottleneck.",
+        "Byte-pair encoding builds a vocabulary by repeatedly merging the most frequent adjacent pair of symbols. An embedding is a one-hot vector times a matrix. The dot product a·b = |a||b|cos θ measures alignment; softmax(z/T) turns scores into probabilities with temperature T. An RNN computes h_t = tanh(W_hh h_{t−1} + W_xh x_t + b), and its gradients are products of many Jacobians, which vanish or explode.",
+        "These ideas are prerequisites for understanding attention, Transformers and large language models.",
+        "Tokenization quirks (leading spaces, split numbers, costly non-English text) affect model behaviour and cost. Softmax is shift-invariant: only differences between scores matter.",
+        ["Reading with a sticky note: an RNN may keep only one small note of everything read so far, which is why long-range details get lost."],
+        [`p_j = \frac{e^{z_j/T}}{\sum_k e^{z_k/T}}`, `h_t = \tanh(W_{hh}h_{t-1} + W_{xh}x_t + b)`]
+      ),
+    }),
+    page({
       id: "attention",
       title: "Attention",
       category: "neural",
@@ -914,7 +937,7 @@
         "How “it” learns that it means “the cat”: queries, keys and values, built up step by step from the dot product you already know.",
       layout: "guide",
       guide: {
-        kicker: "Guide · Part 1 of 2",
+        kicker: "Guide · Part 2 of 4",
         heading: "Attention, from the ground up",
         meta: ["12 short chapters", "≈ 25 min read", "Needs: what a neuron is", "Follows “Attention Is All You Need”"],
       },
@@ -943,7 +966,7 @@
         "The full architecture from “Attention Is All You Need”, one box at a time: word order, the encoder block, the masked decoder, and why it replaced RNNs.",
       layout: "guide",
       guide: {
-        kicker: "Guide · Part 2 of 2",
+        kicker: "Guide · Part 3 of 4",
         heading: "The Transformer, box by box",
         meta: ["11 chapters", "≈ 30 min read", "Needs: the Attention guide", "Every box of the paper's Figure 1"],
       },
@@ -960,6 +983,29 @@
           `PE_{(pos,2i)} = \\sin\\!\\big(pos/10000^{2i/d_{\\text{model}}}\\big),\\quad PE_{(pos,2i+1)} = \\cos\\!\\big(pos/10000^{2i/d_{\\text{model}}}\\big)`,
           `\\text{lrate} = d_{\\text{model}}^{-0.5}\\cdot\\min\\big(\\text{step}^{-0.5},\\ \\text{step}\\cdot\\text{warmup}^{-1.5}\\big)`
         ]
+      ),
+    }),
+    page({
+      id: "llm",
+      title: "From Transformer to LLM",
+      category: "neural",
+      engine: "llm",
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Part 4 of 4",
+        heading: "From the Transformer to today's LLMs",
+        meta: ["11 chapters", "≈ 30 min read", "Real GPT-2 tokenizer", "Published model sizes"],
+      },
+      subtitle: "How GPT-style models use the Transformer: decoder-only stacks, next-token prediction, sampling, RoPE, the KV cache, mixture of experts, scale and instruction tuning.",
+      summary:
+        "How GPT-style models use the Transformer: decoder-only stacks, next-token prediction, sampling, RoPE, the KV cache, mixture of experts, scale and instruction tuning.",
+      detail: details(
+        "Large language models are decoder-only Transformers trained to predict the next token on enormous amounts of text, then fine-tuned to follow instructions and match human preferences.",
+        "Pretraining minimises next-token cross-entropy. Generation samples from softmax(z/T) after top-k or top-p filtering. Modern blocks use pre-norm RMSNorm, SwiGLU feed-forward layers, rotary position embeddings and grouped-query attention; parameters are roughly 12·L·d² + V·d.",
+        "Chat assistants, code completion, summarisation, translation and most modern NLP systems.",
+        "Generation is sequential and memory-bound: the KV cache grows with context length. Pretrained models predict text rather than follow instructions until they are fine-tuned.",
+        ["Autocomplete, scaled up: an LLM is a very good next-word predictor that has been trained further to act as a helpful assistant."],
+        [`\mathcal{L} = -\frac{1}{n}\sum_t \log p_\theta(x_t \mid x_{<t})`, `\text{params} \approx 12\,L\,d^2 + V d`]
       ),
     }),
   ];

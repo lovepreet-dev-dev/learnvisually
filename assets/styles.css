@@ -2658,8 +2658,10 @@ button.tl-token:hover { border-color: var(--accent); }
 .tl-heat-cell.is-focus { outline: 2px solid var(--ink); outline-offset: -1px; }
 .tl-mats-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 
-.tl-bars { display: grid; gap: 5px; }
-.tl-bar-row { display: grid; grid-template-columns: minmax(40px, max-content) 1fr 46px; align-items: center; gap: 10px; font-size: 0.82rem; }
+/* One grid for all rows, so every bar starts at the same x whatever the
+   label lengths. Rows use display: contents to place their three cells. */
+.tl-bars { display: grid; grid-template-columns: minmax(40px, max-content) minmax(40px, 1fr) 46px; gap: 5px 10px; align-items: center; font-size: 0.82rem; }
+.tl-bar-row { display: contents; }
 .tl-bar-row.is-hot { font-weight: 700; }
 .tl-bar-label { color: var(--ink-soft); white-space: nowrap; }
 .tl-bar-track { height: 12px; border-radius: 6px; background: var(--surface-sunk); overflow: hidden; min-width: 40px; }
@@ -2715,3 +2717,60 @@ button.tl-token:hover { border-color: var(--accent); }
   .g-fig { padding: 14px; }
   .tl-feature { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* ── Guide widgets (sequence-guides.js): the editable figures ── */
+.g-widget {
+  margin: 22px 0; padding: 18px 20px; border-radius: 16px; border: 2px dashed var(--accent);
+  background: var(--surface); display: grid; gap: 14px;
+}
+.g-widget .g-label { color: var(--accent-deep); margin: 0; }
+.g-text {
+  width: 100%; font: inherit; font-size: 1rem; line-height: 1.6; padding: 10px 12px; resize: vertical;
+  border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-sunk); color: var(--ink);
+}
+.g-text:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.g-range { display: grid; grid-template-columns: minmax(140px, 220px) 1fr 64px; gap: 12px; align-items: center; font-size: 0.88rem; color: var(--ink-soft); }
+.g-range output { font-family: var(--mono); font-size: 0.82rem; text-align: right; color: var(--ink); }
+.g-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface-sunk); border: 1px solid var(--line); justify-self: start; }
+.g-seg button { font: inherit; font-size: 0.84rem; padding: 6px 12px; border-radius: 9px; border: 0; background: none; color: var(--ink-soft); cursor: pointer; }
+.g-seg button.is-on { background: var(--accent); color: #fff; }
+.g-inputs { display: flex; flex-wrap: wrap; gap: 10px; }
+.g-inputs label, .g-select { display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.g-inputs input, .g-select select {
+  font: inherit; font-size: 0.95rem; width: 120px; padding: 6px 8px; border-radius: 8px;
+  border: 1px solid var(--line-strong); background: var(--surface-sunk); color: var(--ink);
+}
+.g-select select { width: auto; min-width: 220px; }
+.g-actions { display: flex; gap: 8px; }
+.g-metrics { display: flex; flex-wrap: wrap; gap: 8px; }
+.g-metrics > div { padding: 8px 12px; border-radius: 10px; background: var(--surface-sunk); border: 1px solid var(--line); min-width: 110px; }
+.g-metrics span { display: block; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.g-metrics b { font-family: var(--mono); font-size: 0.95rem; color: var(--ink); }
+.g-toks { display: flex; flex-wrap: wrap; gap: 3px; line-height: 1; }
+.g-tok { font-family: var(--mono); font-size: 0.9rem; padding: 5px 4px; border-radius: 5px; white-space: pre; color: var(--ink); }
+.g-tok-0 { background: rgba(13, 122, 114, 0.18); }
+.g-tok-1 { background: rgba(194, 65, 12, 0.18); }
+.g-tok-2 { background: rgba(37, 99, 168, 0.18); }
+.g-tok-3 { background: rgba(124, 58, 237, 0.18); }
+.g-tok-4 { background: rgba(202, 138, 4, 0.22); }
+.g-ids summary { cursor: pointer; font-size: 0.85rem; color: var(--accent-deep); }
+.g-ids code { display: block; margin-top: 8px; font-size: 0.8rem; word-break: break-all; color: var(--ink-soft); }
+.g-merges { margin: 0; padding-left: 22px; line-height: 1.9; font-size: 0.9rem; }
+.g-merges code, .guide code { font-family: var(--mono); font-size: 0.85em; padding: 1px 5px; border-radius: 5px; background: var(--surface-sunk); }
+.g-bpe-words { display: grid; gap: 8px; }
+.g-pipeline { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 0.92rem; line-height: 1.55; color: var(--ink-soft); }
+.g-pipeline .tl-shape-tag { margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--surface-sunk); }
+.g-stack { display: grid; gap: 14px; }
+.g-times { font-size: 1.4rem; color: var(--muted); align-self: center; }
+.g-cards-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.g-cards-3 .soft-box { display: grid; gap: 8px; align-content: start; }
+.g-cards-3 .tl-flow { justify-content: flex-start; }
+
+@media (max-width: 760px) {
+  .g-range { grid-template-columns: 1fr 56px; }
+  .g-range > span { grid-column: 1 / -1; }
+  .g-cards-3 { grid-template-columns: minmax(0, 1fr); }
+  .g-select select { min-width: 0; width: 100%; }
+}
+.g-tok sup { font-size: 0.62rem; margin-left: 2px; color: var(--warm); font-family: var(--body); font-weight: 700; }
+.g-tok-multi { outline: 1px dashed var(--warm); }

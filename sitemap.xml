@@ -289,6 +289,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.learnvisually.fun/pages/algorithm.html?id=sequence-primer</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.learnvisually.fun/pages/algorithm.html?id=attention</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>monthly</changefreq>
@@ -296,6 +302,12 @@
   </url>
   <url>
     <loc>https://www.learnvisually.fun/pages/algorithm.html?id=transformer</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.learnvisually.fun/pages/algorithm.html?id=llm</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

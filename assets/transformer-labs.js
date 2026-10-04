@@ -1219,6 +1219,7 @@
       return `
         <div class="g-intro">
           ${para("This guide explains <strong>attention</strong>, the idea at the heart of the Transformer and of every modern language model, starting from nothing more than a weighted sum. Each chapter starts in plain words, then shows a picture, then the maths. You can stop after the plain-words parts and still understand the idea, or read everything and be ready for the original paper.")}
+          ${para("New to tokens, embeddings or softmax? Start with the <a href=\"./algorithm.html?id=sequence-primer\">Primer</a>; it has live widgets for each.")}
           ${para("One sentence runs through the whole guide: <strong>“the cat sat because it was tired”</strong>. By the end you will see, with real numbers, how the word “it” works out that it means the cat.")}
           ${guideToc(chapters)}
         </div>
@@ -1748,7 +1749,11 @@
           ])}
           <div class="tl-next">
             <div><div class="eyebrow">Read the original</div><strong>Vaswani et al., “Attention Is All You Need” (2017)</strong><p class="caption">§3.1–3.5 → chapters 1–8 · §4 → chapter 10 · §5 → chapter 9 · §6 → results and ablations.</p></div>
-            <a class="button primary" href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Open on arXiv ↗</a>
+            <a class="button secondary" href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Open on arXiv ↗</a>
+          </div>
+          <div class="tl-next">
+            <div><div class="eyebrow">Next guide</div><strong>From the Transformer to today's LLMs</strong><p class="caption">Decoder-only models, sampling, RoPE, the KV cache, mixture of experts and instruction tuning.</p></div>
+            <a class="button primary" href="./algorithm.html?id=llm">Continue to LLMs →</a>
           </div>
         `)}
       `;
