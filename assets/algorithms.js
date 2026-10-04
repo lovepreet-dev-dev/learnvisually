@@ -33,7 +33,7 @@
       title: "Neural Networks",
       page: "neural.html",
       description:
-        "Forward propagation, the chain rule running backwards, activation functions, and the gradient descent loop that ties them together.",
+        "Activation functions, gradient descent and backpropagation, then attention and the Transformer architecture built on top of them.",
     },
   ];
 
@@ -901,6 +901,64 @@
           `\\delta^{(L)} = (\\mathbf{a}^{(L)} - \\mathbf{y}) \\odot \\sigma'(\\mathbf{z}^{(L)})`,
           `\\delta^{(l)} = \\left( (W^{(l+1)})^{\\top} \\delta^{(l+1)} \\right) \\odot \\sigma'(\\mathbf{z}^{(l)})`,
           `\\frac{\\partial L}{\\partial W^{(l)}_{jk}} = \\delta^{(l)}_j \\, a^{(l-1)}_k`
+        ]
+      ),
+    }),
+    page({
+      id: "attention",
+      title: "Attention",
+      category: "neural",
+      engine: "attention",
+      subtitle: "How “it” learns that it means “the cat”: queries, keys and values, built up step by step from the dot product you already know.",
+      summary:
+        "How “it” learns that it means “the cat”: queries, keys and values, built up step by step from the dot product you already know.",
+      heroMeta: [
+        "◉ <b>Click</b> any word to follow it",
+        "∑ <b>Every</b> number computed live",
+        "▤ <b>Step</b> through the paper's equations",
+        "📄 Linked to the original paper",
+      ],
+      detail: details(
+        "A word's meaning depends on the words around it, but an embedding gives each word a single fixed vector. Attention fixes that by rebuilding every word's vector as a weighted average of all the words in the sentence. The weights are not fixed parameters. They are computed fresh for each sentence, from the words themselves: each word asks a question (its query), every word advertises an answer (its key), and the better the match, the more of that word's content (its value) gets mixed in.",
+        "Three learned matrices project each word vector x into a query q = xW^Q, a key k = xW^K and a value v = xW^V. Stacking the sentence into a matrix X turns the whole computation into Equation 1 of the paper: the score matrix QKᵀ compares every query with every key at once, dividing by √dₖ keeps those scores at unit variance, a row-wise softmax turns them into weights that sum to 1, and multiplying by V mixes the values. Multi-head attention runs h of these with smaller dₖ = d_model/h, concatenates the results and projects them with W^O.",
+        "Attention is the core operation of every transformer: machine translation (the paper's task), language models like GPT and BERT, vision transformers that treat image patches as words, and speech and protein models. The same query–key–value pattern also appears in retrieval systems and memory-augmented networks.",
+        "Attention has no idea of word order. Shuffle the input and the outputs are only shuffled, which is why transformers add positional encodings. Its cost grows with the square of the sequence length, since every word scores every other word. And attention heatmaps are tempting to read as explanations, but they show where information flowed in one layer, not why the model made its final decision.",
+        [
+          "Searching a library. The query is what you type into the search box, keys are the labels on the spines, values are the books' contents. Unlike a real library, you don't take one book home. You take a little of every book, in proportion to how well its label matches your search."
+        ],
+        [
+          `\\operatorname{Attention}(Q,K,V) = \\operatorname{softmax}\\!\\Big(\\frac{QK^{\\top}}{\\sqrt{d_k}}\\Big)V`,
+          `Q = XW^Q,\\quad K = XW^K,\\quad V = XW^V`,
+          `\\operatorname{MultiHead}(X) = \\operatorname{Concat}(\\text{head}_1, \\ldots, \\text{head}_h)\\,W^O`
+        ]
+      ),
+    }),
+    page({
+      id: "transformer",
+      title: "Transformer",
+      category: "neural",
+      engine: "transformer",
+      subtitle: "The full architecture from “Attention Is All You Need”, one box at a time: word order, the encoder block, the masked decoder, and why it replaced RNNs.",
+      summary:
+        "The full architecture from “Attention Is All You Need”, one box at a time: word order, the encoder block, the masked decoder, and why it replaced RNNs.",
+      heroMeta: [
+        "◉ <b>Click</b> the paper's Figure 1",
+        "▤ <b>Step</b> through an encoder block",
+        "⇢ <b>Watch</b> a sentence get translated",
+        "📄 Mapped to every section of the paper",
+      ],
+      detail: details(
+        "A transformer is attention plus the four things attention can't do by itself. Positional encodings give it a sense of word order. A small feed-forward network processes each word after it has gathered context. Residual connections and layer normalisation let dozens of layers train. And a decoder with a causal mask writes the output one word at a time while reading the input through cross-attention. There is no recurrence: every word is processed in parallel.",
+        "The encoder is N identical layers, each computing h = LN(x + MultiHead(x)) and then LN(h + FFN(h)), where FFN(h) = max(0, hW₁ + b₁)W₂ + b₂ runs on each position separately. The decoder adds a masked self-attention (scores above the diagonal set to −∞) and a cross-attention whose queries come from the decoder and whose keys and values come from the encoder output. A final linear layer and softmax give next-token probabilities. Sinusoidal positional encodings are added to the input embeddings, and training uses Adam with a warm-up learning-rate schedule, dropout and label smoothing.",
+        "This architecture underlies essentially all modern large language models (decoder-only, like GPT), text encoders (encoder-only, like BERT), sequence-to-sequence systems for translation and summarisation (the original encoder–decoder form), and vision, audio and multimodal models. Understanding the original paper's version makes every later variant a small change to one of its boxes.",
+        "Self-attention's cost grows as n² with sequence length, so very long inputs are expensive. Without positional information the model is blind to order. Generation is still sequential, one token per step, even though training is parallel. The causal mask must be applied correctly, or the decoder learns to copy the answer during training and fails at inference. Transformers are also data-hungry: their weak built-in assumptions are a strength at scale and a weakness on small datasets.",
+        [
+          "A meeting instead of a game of telephone. An RNN passes a message along a line, one person at a time, and details fade with every hop. A transformer puts everyone in one room: each person can ask anyone else directly (attention), then thinks it over alone (feed-forward), and the meeting repeats a few rounds (layers)."
+        ],
+        [
+          `h = \\operatorname{LayerNorm}\\big(x + \\operatorname{MultiHead}(x)\\big),\\quad y = \\operatorname{LayerNorm}\\big(h + \\operatorname{FFN}(h)\\big)`,
+          `PE_{(pos,2i)} = \\sin\\!\\big(pos/10000^{2i/d_{\\text{model}}}\\big),\\quad PE_{(pos,2i+1)} = \\cos\\!\\big(pos/10000^{2i/d_{\\text{model}}}\\big)`,
+          `\\text{lrate} = d_{\\text{model}}^{-0.5}\\cdot\\min\\big(\\text{step}^{-0.5},\\ \\text{step}\\cdot\\text{warmup}^{-1.5}\\big)`
         ]
       ),
     }),

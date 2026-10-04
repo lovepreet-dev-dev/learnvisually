@@ -411,10 +411,12 @@
         <h1>${definition.title}</h1>
         <p class="page-lead">${definition.subtitle}</p>
         <div class="hero-meta">
-          <span>✎ <b>Editable</b> input data</span>
-          <span>∑ <b>Live</b> formulas with your numbers</span>
-          <span>▤ <b>Step-by-step</b> logic trail</span>
-          <span>◈ Deep-dive notes below</span>
+          ${(definition.heroMeta || [
+            "✎ <b>Editable</b> input data",
+            "∑ <b>Live</b> formulas with your numbers",
+            "▤ <b>Step-by-step</b> logic trail",
+            "◈ Deep-dive notes below",
+          ]).map((item) => `<span>${item}</span>`).join("")}
         </div>
       </section>
 
@@ -8563,6 +8565,11 @@
     backprop: mountBackprop,
     transform: mountTransform,
   };
+  /* Labs that live in their own files (transformer-labs.js) register on
+     window.MLExtraLabs and receive the shared rendering helpers. */
+  Object.entries(window.MLExtraLabs || {}).forEach(([name, mount]) => {
+    if (!engines[name]) engines[name] = (node) => mount(node, { renderFormulaCards });
+  });
   if (engines[definition.engine]) {
     engines[definition.engine](workspace);
   } else {
