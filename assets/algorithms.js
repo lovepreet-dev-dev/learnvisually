@@ -909,15 +909,15 @@
       title: "Attention",
       category: "neural",
       engine: "attention",
-      subtitle: "How “it” learns that it means “the cat”: queries, keys and values, built up step by step from the dot product you already know.",
+      subtitle: "How does the word “it” work out that it means “the cat”? A step-by-step guide that starts from plain words and builds up to the exact formula in the paper.",
       summary:
         "How “it” learns that it means “the cat”: queries, keys and values, built up step by step from the dot product you already know.",
-      heroMeta: [
-        "◉ <b>Click</b> any word to follow it",
-        "∑ <b>Every</b> number computed live",
-        "▤ <b>Step</b> through the paper's equations",
-        "📄 Linked to the original paper",
-      ],
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Part 1 of 2",
+        heading: "Attention, from the ground up",
+        meta: ["12 short chapters", "≈ 25 min read", "Needs: what a neuron is", "Follows “Attention Is All You Need”"],
+      },
       detail: details(
         "A word's meaning depends on the words around it, but an embedding gives each word a single fixed vector. Attention fixes that by rebuilding every word's vector as a weighted average of all the words in the sentence. The weights are not fixed parameters. They are computed fresh for each sentence, from the words themselves: each word asks a question (its query), every word advertises an answer (its key), and the better the match, the more of that word's content (its value) gets mixed in.",
         "Three learned matrices project each word vector x into a query q = xW^Q, a key k = xW^K and a value v = xW^V. Stacking the sentence into a matrix X turns the whole computation into Equation 1 of the paper: the score matrix QKᵀ compares every query with every key at once, dividing by √dₖ keeps those scores at unit variance, a row-wise softmax turns them into weights that sum to 1, and multiplying by V mixes the values. Multi-head attention runs h of these with smaller dₖ = d_model/h, concatenates the results and projects them with W^O.",
@@ -938,15 +938,15 @@
       title: "Transformer",
       category: "neural",
       engine: "transformer",
-      subtitle: "The full architecture from “Attention Is All You Need”, one box at a time: word order, the encoder block, the masked decoder, and why it replaced RNNs.",
+      subtitle: "The complete model from “Attention Is All You Need”, explained one box of its famous diagram at a time: from words in to a translation out.",
       summary:
         "The full architecture from “Attention Is All You Need”, one box at a time: word order, the encoder block, the masked decoder, and why it replaced RNNs.",
-      heroMeta: [
-        "◉ <b>Click</b> the paper's Figure 1",
-        "▤ <b>Step</b> through an encoder block",
-        "⇢ <b>Watch</b> a sentence get translated",
-        "📄 Mapped to every section of the paper",
-      ],
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Part 2 of 2",
+        heading: "The Transformer, box by box",
+        meta: ["11 chapters", "≈ 30 min read", "Needs: the Attention guide", "Every box of the paper's Figure 1"],
+      },
       detail: details(
         "A transformer is attention plus the four things attention can't do by itself. Positional encodings give it a sense of word order. A small feed-forward network processes each word after it has gathered context. Residual connections and layer normalisation let dozens of layers train. And a decoder with a causal mask writes the output one word at a time while reading the input through cross-attention. There is no recurrence: every word is processed in parallel.",
         "The encoder is N identical layers, each computing h = LN(x + MultiHead(x)) and then LN(h + FFN(h)), where FFN(h) = max(0, hW₁ + b₁)W₂ + b₂ runs on each position separately. The decoder adds a masked self-attention (scores above the diagonal set to −∞) and a cross-attention whose queries come from the decoder and whose keys and values come from the encoder output. A final linear layer and softmax give next-token probabilities. Sinusoidal positional encodings are added to the input embeddings, and training uses Adam with a warm-up learning-rate schedule, dropout and label smoothing.",

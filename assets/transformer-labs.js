@@ -485,37 +485,6 @@
       .join("")}</div>`;
   }
 
-  function chips(items, active, attr) {
-    return `<div class="tl-chips">${items
-      .map(
-        (item, i) =>
-          `<button type="button" class="tl-chip${i === active ? " is-active" : ""}" ${attr}="${i}">${item}</button>`
-      )
-      .join("")}</div>`;
-  }
-
-  function lesson(id, number, title, intro, paper, body) {
-    return `
-      <section class="lab tl-lesson" id="${id}">
-        <div class="section-header">
-          <div>
-            <div class="eyebrow">Step ${number}</div>
-            <h2>${title}</h2>
-          </div>
-          ${paper ? `<span class="tl-paper" title="Where this appears in “Attention Is All You Need”">📄 Paper ${paper}</span>` : ""}
-        </div>
-        <p class="section-intro">${intro}</p>
-        ${body}
-      </section>`;
-  }
-
-  function lessonNav(items) {
-    return `
-      <nav class="tl-nav" aria-label="Lessons on this page">
-        ${items.map((item, i) => `<a href="#${item.id}"><b>${i + 1}</b>${item.label}</a>`).join("")}
-      </nav>`;
-  }
-
   function quiz(items) {
     return `<div class="tl-quiz">${items
       .map((item) => `<details><summary>${item.q}</summary><div>${item.a}</div></details>`)
@@ -571,198 +540,7 @@
 
   const tex = (latex, display = false) => U().tex(latex, display);
 
-  /* ════════════════════════════════════════════════════════════════
-     ATTENTION PAGE
-     ════════════════════════════════════════════════════════════════ */
-
-  function mountAttention(rootNode, helpers) {
-    const nav = [
-      { id: "att-context", label: "Why words need context" },
-      { id: "att-qkv", label: "Query, key and value" },
-      { id: "att-matrix", label: "Every word at once" },
-      { id: "att-scale", label: "Why divide by √dₖ" },
-      { id: "att-heads", label: "Multi-head attention" },
-      { id: "att-check", label: "Check yourself" },
-    ];
-
-    rootNode.innerHTML = `
-      <section class="lab tl-intro">
-        <div class="section-header">
-          <div>
-            <div class="eyebrow">Start here</div>
-            <h2>A neuron with weights that change for every sentence</h2>
-          </div>
-        </div>
-        <p class="section-intro">
-          A neuron is a weighted sum: <strong>Σ wⱼ·xⱼ</strong>. Attention is a weighted sum too. What's new is
-          where the weights come from. A neuron's weights are learned once and then fixed. Attention computes
-          its weights <em>on the fly, from the words themselves</em>, so they are different for every sentence.
-          That is the whole idea. The steps below build it one piece at a time.
-        </p>
-        <div class="tl-intro-grid">
-          <div class="soft-box">
-            <strong>What you need to know</strong>
-            <ul class="tl-list">
-              <li><b>Dot product</b> a·b: large when two vectors point the same way.</li>
-              <li><b>Softmax</b>: turns any list of scores into positive weights that add up to 1.</li>
-              <li><b>Matrix multiply</b>: the same as a dense layer applied to every row.</li>
-            </ul>
-          </div>
-          <div class="soft-box">
-            <strong>The toy model used on this page</strong>
-            <p class="caption">
-              Each word is 4 numbers with names you can read: <b>thing</b>, <b>alive</b>, <b>action/state</b>,
-              <b>refers back</b>. The weights are set by hand so the patterns make sense. The paper uses 512
-              unnamed numbers learned from data, but the mechanics are identical, and every number here is computed live.
-            </p>
-          </div>
-        </div>
-        ${lessonNav(nav)}
-      </section>
-      <div id="att-context"></div>
-      <div id="att-qkv"></div>
-      <div id="att-matrix"></div>
-      <div id="att-scale"></div>
-      <div id="att-heads"></div>
-      <div id="att-check"></div>
-    `;
-
-    const host = (id) => rootNode.querySelector(`#${id}`);
-    /* The wrapper divs carry the ids for the nav links; the sections
-       inside them get distinct ids. */
-    mountContextLesson(host("att-context"), helpers);
-    mountQkvLesson(host("att-qkv"), helpers);
-    mountMatrixLesson(host("att-matrix"));
-    mountScaleLesson(host("att-scale"), helpers);
-    mountHeadsLesson(host("att-heads"));
-    mountAttentionQuiz(host("att-check"));
-  }
-
-  /* ── Step 1: context, with raw similarity ─────────────────────── */
-  function mountContextLesson(node, helpers) {
-    node.innerHTML = lesson(
-      "att-context-lab",
-      1,
-      "Why words need context",
-      "An embedding gives each word one fixed vector. So “bank” gets the same vector next to “river” as next to “loan”, even though it means something different. Here is the simplest fix: build a new vector for each word as a <strong>weighted average of the words around it</strong>, giving more weight to words that are more similar. The two numbers per word below are “money-ness” and “nature-ness”.",
-      "§3.2 (motivation)",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label>Sentence</label>
-              <div data-slot="sentences"></div>
-            </div>
-            <div class="control-group">
-              <label>Focus word (click one)</label>
-              <div data-slot="strip"></div>
-            </div>
-            <div class="control-group">
-              <label for="ctx-sharp">Sharpness β (multiplies every score)</label>
-              <div class="range-row">
-                <input id="ctx-sharp" type="range" min="0" max="12" step="0.5" value="3" />
-                <span class="range-value" id="ctx-sharp-value">3.0</span>
-              </div>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-          </div>
-          <div class="two-column">
-            <div class="plot-card">
-              <svg data-slot="plot" viewBox="0 0 560 360" aria-label="Words as 2D vectors and the focus word's new position"></svg>
-              <div class="legend">
-                <span><i data-swatch="c"></i> Original vector</span>
-                <span><i data-swatch="b"></i> New vector (after mixing)</span>
-                <span><i data-swatch="a"></i> Line thickness = weight</span>
-              </div>
-            </div>
-            <div class="plot-card tl-pad">
-              <div class="tl-subhead">How much each word contributes</div>
-              <div data-slot="bars"></div>
-            </div>
-            <div class="equation-card" data-slot="math"></div>
-          </div>
-        </div>
-      `
-    );
-
-    const sharpInput = node.querySelector("#ctx-sharp");
-    const sharpValue = node.querySelector("#ctx-sharp-value");
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    let sentenceIndex = 0;
-    let focus = 2;
-
-    onClickAttr(slot("sentences"), "data-ctx-sentence", (i) => {
-      sentenceIndex = i;
-      focus = math.tokensOf(CONTEXT_SENTENCES[i]).indexOf("bank");
-      render();
-    });
-    onClickAttr(slot("strip"), "data-ctx-token", (i) => {
-      focus = i;
-      render();
-    });
-    sharpInput.addEventListener("input", render);
-
-    function render() {
-      const sentence = CONTEXT_SENTENCES[sentenceIndex];
-      const tokens = math.tokensOf(sentence);
-      const X = tokens.map((token) => CONTEXT_VOCAB[token]);
-      const beta = Number(sharpInput.value);
-      sharpValue.textContent = beta.toFixed(1);
-      const result = rawAttention(X, focus, beta);
-      const before = X[focus];
-      const after = result.out;
-
-      paintSwatches(node);
-      slot("sentences").innerHTML = chips(
-        CONTEXT_SENTENCES.map((entry) => entry.label),
-        sentenceIndex,
-        "data-ctx-sentence"
-      );
-      slot("strip").innerHTML = sentenceStrip(tokens, focus, result.weights, "data-ctx-token");
-
-      const self = result.weights[focus];
-      const dx = after[0] - before[0];
-      const dy = after[1] - before[1];
-      let direction = "barely moved: the words around it give no clear direction";
-      if (Math.hypot(dx, dy) > 0.04) direction = dy > dx ? "moved toward <strong>nature</strong>" : "moved toward <strong>money</strong>";
-      slot("callout").innerHTML = `
-        “${tokens[focus]}” keeps <strong>${pct(self)}</strong> of itself and takes <strong>${pct(1 - self)}</strong>
-        from the other words. Its vector ${direction}:
-        (${fmt(before[0])}, ${fmt(before[1])}) → (${fmt(after[0])}, ${fmt(after[1])}).
-        ${beta >= 8 ? "<br><br><strong>Notice:</strong> at high sharpness the word attends almost only to <em>itself</em>, because a vector is always most similar to itself. Context disappears." : ""}
-        ${beta === 0 ? "<br><br>At β = 0 every score becomes 0, so every word gets the same weight: a plain average." : ""}`;
-
-      slot("bars").innerHTML = barList(result.weights, tokens, { max: 1, highlight: focus, asPercent: true });
-
-      drawContextPlot(slot("plot"), tokens, X, focus, result.weights, after);
-
-      const order = tokens.map((_, j) => j).sort((a, b) => result.weights[b] - result.weights[a]).slice(0, 3);
-      helpers.renderFormulaCards(slot("math"), [
-        {
-          title: "Score, then weight, then mix",
-          description: "Three lines, which are the same three lines the paper uses. Only the vectors that go into them change in step 2.",
-          tex: String.raw`x'_i = \sum_j \operatorname{softmax}_j\!\big(\beta \, x_i \cdot x_j\big)\, x_j`,
-          derivation: [
-            ...order.map((j) => ({
-              tex: String.raw`\text{score}(\text{${tokens[focus]}}, \text{${tokens[j]}}) = ${fmt(before[0])}\cdot${fmt(X[j][0])} + ${fmt(before[1])}\cdot${fmt(X[j][1])} = ${fmt(math.dotV(before, X[j]), 3)}`,
-              result: `w = ${fmt(result.weights[j], 3)}`,
-            })),
-            {
-              tex: String.raw`x'_{\text{${tokens[focus]}}} = (${fmt(after[0], 3)},\; ${fmt(after[1], 3)})`,
-              result: "new vector",
-              note: "The weights add up to 1, so the new vector is a blend that stays among the original words.",
-            },
-          ],
-          insight:
-            "<strong>Two problems remain, and step 2 fixes both.</strong> (1) Raise the sharpness and the word only looks at itself. (2) Similar is not the same as relevant: “it” needs “cat”, but the two words are not alike at all.",
-        },
-      ]);
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
+  /* ── Figures reused from the first version of these pages ── */
   function paintSwatches(node) {
     node.querySelectorAll("[data-swatch]").forEach((swatch) => {
       swatch.style.background = C()[swatch.getAttribute("data-swatch")];
@@ -838,159 +616,6 @@
       "text-anchor": "middle",
       class: "svg-title",
     });
-  }
-
-  /* ── Step 2: query, key, value ────────────────────────────────── */
-  function mountQkvLesson(node, helpers) {
-    const head = HEADS[0];
-    node.innerHTML = lesson(
-      "att-qkv-lab",
-      2,
-      "Query, key and value: asking the right question",
-      "The fix is to give every word <strong>three different vectors</strong>, each made by its own learned weight matrix. The <strong>query</strong> is what the word is looking for. The <strong>key</strong> is what the word advertises to others. The <strong>value</strong> is what the word hands over if it is picked. A word's score for another word is <em>its query · their key</em>, so relevance no longer needs the two words to be similar.",
-      "§3.2.1",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label>Sentence</label>
-              <div data-slot="sentences"></div>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-            <div class="soft-box tl-analogy">
-              <strong>Analogy: searching a library</strong>
-              <dl>
-                <dt>Query</dt><dd>What you type into the search box: “a living thing”.</dd>
-                <dt>Key</dt><dd>The label on each book's spine: “I'm about a cat”.</dd>
-                <dt>Value</dt><dd>What's inside the book: what you actually take home.</dd>
-              </dl>
-              <p class="caption">Unlike a real library, you don't take one book. You take a little of every book, in proportion to how well its label matches your search.</p>
-            </div>
-          </div>
-          <div class="two-column">
-            <div class="plot-card tl-pad">
-              <div class="tl-subhead">Click any word to see where it looks</div>
-              <div data-slot="strip-raw"></div>
-              <div data-slot="strip-qk"></div>
-            </div>
-            <div class="two-up">
-              <div class="plot-card">
-                <svg data-slot="plot" viewBox="0 0 420 340" aria-label="The query and every key, in 2D"></svg>
-                <p class="caption tl-svg-note">Bigger dot = more weight. Every key on the dashed line gets the same score as the winner: a dot product measures how far a key reaches <em>along</em> the query's direction.</p>
-              </div>
-              <div class="plot-card tl-pad">
-                <div class="tl-subhead">What the word carries away (its value mix)</div>
-                <div data-slot="features"></div>
-              </div>
-            </div>
-            <div class="table-panel">
-              <table>
-                <thead><tr><th>Word</th><th>Key k</th><th>q · k</th><th>÷ √dₖ</th><th>Weight</th></tr></thead>
-                <tbody data-slot="table"></tbody>
-              </table>
-            </div>
-            <div class="equation-card" data-slot="math"></div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    let sentenceIndex = 0;
-    let focus = SENTENCES[0].focus;
-
-    onClickAttr(slot("sentences"), "data-qkv-sentence", (i) => {
-      sentenceIndex = i;
-      focus = SENTENCES[i].focus;
-      render();
-    });
-    [slot("strip-raw"), slot("strip-qk")].forEach((strip) =>
-      onClickAttr(strip, "data-qkv-token", (i) => {
-        focus = i;
-        render();
-      })
-    );
-
-    function render() {
-      const sentence = SENTENCES[sentenceIndex];
-      const tokens = math.tokensOf(sentence);
-      const X = math.embed(tokens);
-      const result = attentionHead(X, head);
-      const raw = rawAttention(X, focus, 1);
-      const q = result.Q[focus];
-      const weights = result.A[focus];
-      const word = tokens[focus];
-
-      slot("sentences").innerHTML = chips(
-        SENTENCES.map((entry) => `“${entry.text}”`),
-        sentenceIndex,
-        "data-qkv-sentence"
-      );
-      slot("strip-raw").innerHTML = sentenceStrip(tokens, focus, raw.weights, "data-qkv-token", {
-        label: "Plain similarity (step 1)",
-      });
-      slot("strip-qk").innerHTML = sentenceStrip(tokens, focus, weights, "data-qkv-token", {
-        label: "Query · key (this step)",
-      });
-
-      const best = weights.indexOf(Math.max(...weights));
-      const qZero = Math.hypot(q[0], q[1]) < 1e-9;
-      slot("callout").innerHTML = qZero
-        ? `“${word}” has a <strong>zero query</strong>: it isn't asking this head anything. Every score is 0, so every word gets the same weight, 1/${tokens.length} = ${pct(1 / tokens.length)}. A head can choose to ignore some words.`
-        : `With plain similarity, “${word}” gives <strong>${pct(raw.weights[focus])}</strong> to itself. With query · key it gives
-           <strong>${pct(weights[best])}</strong> to “${tokens[best]}”.<br><br>${sentence.lesson}`;
-
-      const before = X[focus].slice(0, 2);
-      slot("features").innerHTML = `
-        ${featureCompare(head.vLabels, [
-          { name: `“${word}” before`, values: before, color: C().c },
-          { name: `“${word}” after attention`, values: result.O[focus], color: C().b },
-        ])}
-        <p class="caption">${
-          word === "it"
-            ? "“it” started with <b>alive = 0</b>. After attention it carries the “alive” it borrowed from the noun it found. That is how context gets into a word."
-            : "Every word's output is a weighted mix of the value vectors. Click “it” to see context being borrowed."
-        }</p>`;
-
-      slot("table").innerHTML = tokens
-        .map((token, j) => {
-          const k = result.K[j];
-          const hot = j === best ? ' style="background:var(--accent-soft);font-weight:600"' : "";
-          return `<tr${hot}><td>${token}</td><td class="mono">(${fmt(k[0])}, ${fmt(k[1])})</td><td class="mono">${fmt(result.S[focus][j])}</td><td class="mono">${fmt(result.scaled[focus][j])}</td><td class="mono">${pct(weights[j])}</td></tr>`;
-        })
-        .join("");
-
-      drawQueryKeyPlot(slot("plot"), tokens, result, focus);
-
-      const k = result.K[best];
-      helpers.renderFormulaCards(slot("math"), [
-        {
-          title: "Three projections of the same word",
-          description: `Each projection is a dense layer with no bias and no activation. The same three matrices are used for every word. For “${word}”:`,
-          tex: String.raw`q = x W^Q,\quad k = x W^K,\quad v = x W^V`,
-          derivation: [
-            {
-              tex: String.raw`q_{\text{${word}}} = (${X[focus].map((v) => fmt(v)).join(",\\,")})\,W^Q = (${fmt(q[0])},\; ${fmt(q[1])})`,
-              result: "query",
-            },
-            {
-              tex: String.raw`q \cdot k_{\text{${tokens[best]}}} = ${fmt(q[0])}\cdot${fmt(k[0])} + ${fmt(q[1])}\cdot${fmt(k[1])} = ${fmt(result.S[focus][best], 3)}`,
-              result: "score",
-            },
-            {
-              tex: String.raw`\tfrac{${fmt(result.S[focus][best], 3)}}{\sqrt{2}} = ${fmt(result.scaled[focus][best], 3)} \;\xrightarrow{\text{softmax}}\; ${fmt(weights[best], 3)}`,
-              result: "weight",
-              note: "√dₖ with dₖ = 2 here. Step 4 explains why this division matters.",
-            },
-          ],
-          insight:
-            "<strong>Why three matrices instead of one?</strong> What a word looks for, how it is found and what it contributes are different jobs. “it” looks for a living thing but has nothing useful to offer by itself. Separate W<sup>Q</sup>, W<sup>K</sup> and W<sup>V</sup> let one word play all three roles differently.",
-        },
-      ]);
-    }
-
-    render();
-    U().onRedraw(render);
   }
 
   function drawQueryKeyPlot(svg, tokens, result, focus) {
@@ -1073,271 +698,6 @@
     }
   }
 
-  /* ── Step 3: the matrix form, stage by stage ──────────────────── */
-  function mountMatrixLesson(node) {
-    const head = HEADS[0];
-    const sentence = SENTENCES[0];
-    const tokens = math.tokensOf(sentence);
-    const X = math.embed(tokens);
-    const result = attentionHead(X, head);
-    const n = tokens.length;
-
-    const stages = [
-      {
-        name: "Stack the words",
-        text: "Put the sentence into a matrix, <strong>one row per word</strong>. Everything after this is matrix arithmetic on all rows at once.",
-        tex: String.raw`X \in \mathbb{R}^{n \times d_{\text{model}}}`,
-        shape: `${n} × 4`,
-      },
-      {
-        name: "Project to Q, K, V",
-        text: "Multiply by three learned weight matrices. Each row of <b>Q</b>, <b>K</b> and <b>V</b> is that word's query, key and value. All words share the same weights, just as one dense layer is shared by every example in a batch.",
-        tex: String.raw`Q = XW^Q,\quad K = XW^K,\quad V = XW^V`,
-        shape: `${n} × 2 each`,
-      },
-      {
-        name: "Score every pair",
-        text: "<b>QKᵀ</b> takes the dot product of every query with every key in a single multiply. Row <em>i</em>, column <em>j</em> answers: how well does word <em>i</em>'s question match word <em>j</em>'s label?",
-        tex: String.raw`S = QK^{\top}`,
-        shape: `${n} × ${n}`,
-      },
-      {
-        name: "Scale",
-        text: "Divide every score by <b>√dₖ</b> (here √2). This keeps the scores in a range where softmax still has useful gradients. Step 4 shows why.",
-        tex: String.raw`S' = \frac{QK^{\top}}{\sqrt{d_k}}`,
-        shape: `${n} × ${n}`,
-      },
-      {
-        name: "Softmax each row",
-        text: "Turn each row into weights that are positive and <strong>add up to 1</strong>. This is the <em>attention matrix</em>, the heatmap you see in papers and blog posts. Row <em>i</em> is where word <em>i</em> looks.",
-        tex: String.raw`A = \operatorname{softmax}_{\text{row}}\!\Big(\frac{QK^{\top}}{\sqrt{d_k}}\Big)`,
-        shape: `${n} × ${n}`,
-      },
-      {
-        name: "Mix the values",
-        text: "Multiply by <b>V</b>: each output row is the weighted average of all value rows, using that word's attention weights. That gives Equation 1 of the paper.",
-        tex: String.raw`\operatorname{Attention}(Q,K,V) = \operatorname{softmax}\!\Big(\frac{QK^{\top}}{\sqrt{d_k}}\Big)V`,
-        shape: `${n} × 2`,
-      },
-    ];
-
-    node.innerHTML = lesson(
-      "att-matrix-lab",
-      3,
-      "Every word at once: the matrix form",
-      "Step 2 followed one word. In practice <strong>every word asks its question at the same time</strong>, and the whole computation becomes a few matrix multiplies. No loop runs over the words, so a GPU can do all of them in parallel. An RNN cannot: it must finish word 1 before starting word 2.",
-      "§3.2.1 · Eq. 1",
-      `
-        <div class="tl-stepper">
-          <div class="tl-stepper-bar">
-            <div data-slot="dots"></div>
-            <div class="step-controls">
-              <button type="button" class="button secondary" data-step="-1">← Previous</button>
-              <button type="button" class="button primary" data-step="1">Next stage →</button>
-            </div>
-          </div>
-          <div class="tl-stage">
-            <div class="tl-stage-text">
-              <h3 data-slot="title"></h3>
-              <p data-slot="text"></p>
-              <div class="formula-tex" data-slot="tex"></div>
-              <p class="caption">Click a word on the left of any matrix to follow its row through every stage.</p>
-            </div>
-            <div class="tl-stage-mats" data-slot="mats"></div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    let stage = 0;
-    let focus = sentence.focus;
-
-    node.querySelectorAll("[data-step]").forEach((button) =>
-      button.addEventListener("click", () => {
-        stage = Math.max(0, Math.min(stages.length - 1, stage + Number(button.getAttribute("data-step"))));
-        render();
-      })
-    );
-    onClickAttr(slot("dots"), "data-stage", (i) => {
-      stage = i;
-      render();
-    });
-    onClickAttr(slot("mats"), "data-mat-row", (i) => {
-      focus = i;
-      render();
-    });
-
-    function render() {
-      const current = stages[stage];
-      slot("dots").innerHTML = chips(
-        stages.map((entry, i) => `${i + 1}. ${entry.name}`),
-        stage,
-        "data-stage"
-      );
-      slot("title").textContent = `${stage + 1}. ${current.name}`;
-      slot("text").innerHTML = current.text;
-      slot("tex").innerHTML = tex(current.tex, true);
-
-      const common = { rows: tokens, focusRow: focus, rowAttr: "data-mat-row" };
-      const square = { ...common, cols: tokens, colHint: "keys →" };
-      let html = "";
-      if (stage === 0) {
-        html = heatmap(X, { ...common, cols: FEATURES, title: "X: word vectors", shape: current.shape });
-      } else if (stage === 1) {
-        html = `
-          <div class="tl-mats-row">
-            ${heatmap(result.Q, { ...common, cols: ["q₁", "q₂"], title: "Q", shape: `${n} × 2` })}
-            ${heatmap(result.K, { ...common, cols: ["k₁", "k₂"], title: "K", shape: `${n} × 2` })}
-            ${heatmap(result.V, { ...common, cols: head.vLabels, title: "V", shape: `${n} × 2` })}
-          </div>
-          <details class="tl-weights">
-            <summary>Show the learned weight matrices W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup> (4 × 2 each)</summary>
-            <div class="tl-mats-row">
-              ${heatmap(head.WQ, { rows: FEATURES, cols: ["q₁", "q₂"], title: "W<sup>Q</sup>" })}
-              ${heatmap(head.WK, { rows: FEATURES, cols: ["k₁", "k₂"], title: "W<sup>K</sup>" })}
-              ${heatmap(head.WV, { rows: FEATURES, cols: head.vLabels, title: "W<sup>V</sup>" })}
-            </div>
-            <p class="caption">Read a row as: “this input feature feeds these outputs”. For example, “refers back” feeds the query strongly, so pronouns ask the most insistent questions.</p>
-          </details>`;
-      } else if (stage === 2) {
-        html = heatmap(result.S, { ...square, title: "S = QKᵀ (raw scores)", shape: current.shape });
-      } else if (stage === 3) {
-        html = heatmap(result.scaled, { ...square, title: "S ÷ √dₖ", shape: current.shape });
-      } else if (stage === 4) {
-        html = `${heatmap(result.A, { ...square, maxAbs: 1, title: "A: attention weights (each row sums to 1)", shape: current.shape })}
-          <p class="caption">Row “${tokens[focus]}” sums to ${fmt(result.A[focus].reduce((a, b) => a + b, 0), 3)}.</p>`;
-      } else {
-        html = `
-          <div class="tl-mats-row">
-            ${heatmap(result.A, { ...square, maxAbs: 1, title: "A", shape: `${n} × ${n}`, digits: 2 })}
-            <div class="tl-times">×</div>
-            ${heatmap(result.V, { ...common, cols: head.vLabels, title: "V", shape: `${n} × 2` })}
-            <div class="tl-times">=</div>
-            ${heatmap(result.O, { ...common, cols: head.vLabels, title: "Output", shape: `${n} × 2` })}
-          </div>
-          <p class="caption">Output row “${tokens[focus]}” = Σⱼ A[${tokens[focus]}, j] · V[j] = (${fmt(result.O[focus][0])}, ${fmt(result.O[focus][1])}).</p>`;
-      }
-      slot("mats").innerHTML = html;
-      node.querySelector('[data-step="-1"]').disabled = stage === 0;
-      node.querySelector('[data-step="1"]').disabled = stage === stages.length - 1;
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
-  /* ── Step 4: why divide by √dk ────────────────────────────────── */
-  function mountScaleLesson(node, helpers) {
-    const sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
-    node.innerHTML = lesson(
-      "att-scale-lab",
-      4,
-      "Why divide by √dₖ?",
-      "The paper's footnote 4 gives the reason. A dot product adds up dₖ products. If each product is random noise of size about 1, the total grows like <strong>√dₖ</strong>. In the paper dₖ = 64, so raw scores are about 8× larger than they should be. Softmax over very large scores puts almost all the weight on one key and gives near-zero gradient to the rest. Here random queries and keys play the role of an untrained network.",
-      "§3.2.1 · footnote 4",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label for="scale-dk">Key size dₖ</label>
-              <div class="range-row">
-                <input id="scale-dk" type="range" min="0" max="${sizes.length - 1}" step="1" value="6" />
-                <span class="range-value" id="scale-dk-value">64</span>
-              </div>
-            </div>
-            <div class="step-controls">
-              <button type="button" class="button secondary" data-slot="resample">New random query &amp; keys</button>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-          </div>
-          <div class="two-column">
-            <div class="plot-card">
-              <svg data-slot="plot" viewBox="0 0 560 250" aria-label="Softmax weights over 8 keys, with and without scaling"></svg>
-              <div class="legend">
-                <span><i data-swatch="b"></i> Without scaling: softmax(q·k)</span>
-                <span><i data-swatch="a"></i> With scaling: softmax(q·k / √dₖ)</span>
-              </div>
-            </div>
-            <div class="readout"><div class="output-grid" data-slot="metrics"></div></div>
-            <div class="equation-card" data-slot="math"></div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    const dkInput = node.querySelector("#scale-dk");
-    const dkValue = node.querySelector("#scale-dk-value");
-    let seed = 1;
-    dkInput.addEventListener("input", render);
-    slot("resample").addEventListener("click", () => {
-      seed += 1;
-      render();
-    });
-
-    function render() {
-      const dk = sizes[Number(dkInput.value)];
-      dkValue.textContent = String(dk);
-      const rng = seeded(seed * 7919 + dk);
-      const vec = () => Array.from({ length: dk }, () => gaussian(rng));
-      const q = vec();
-      const keys = Array.from({ length: 8 }, vec);
-      const raw = keys.map((k) => math.dotV(q, k));
-      const scaled = raw.map((value) => value / Math.sqrt(dk));
-      const wRaw = softmax(raw);
-      const wScaled = softmax(scaled);
-
-      /* Empirical spread of q·k over many fresh pairs. */
-      const spreadRng = seeded(seed * 104729 + dk * 31);
-      const samples = Array.from({ length: 400 }, () => {
-        let total = 0;
-        for (let i = 0; i < dk; i += 1) total += gaussian(spreadRng) * gaussian(spreadRng);
-        return total;
-      });
-      const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
-      const std = Math.sqrt(samples.reduce((a, b) => a + (b - mean) ** 2, 0) / samples.length);
-      const gradient = (weights) => weights.reduce((acc, w) => acc + w * (1 - w), 0);
-
-      paintSwatches(node);
-      U().renderMetrics(slot("metrics"), [
-        { label: "Spread of q·k (std)", value: `${fmt(std)} ≈ √${dk} = ${fmt(Math.sqrt(dk))}` },
-        { label: "Spread after ÷ √dₖ", value: fmt(std / Math.sqrt(dk)) },
-        { label: "Top weight, unscaled", value: pct(Math.max(...wRaw)) },
-        { label: "Top weight, scaled", value: pct(Math.max(...wScaled)) },
-        { label: "Gradient signal Σw(1−w), unscaled", value: fmt(gradient(wRaw), 3) },
-        { label: "Gradient signal Σw(1−w), scaled", value: fmt(gradient(wScaled), 3) },
-      ]);
-
-      const top = Math.max(...wRaw);
-      slot("callout").innerHTML =
-        dk <= 2
-          ? "With a tiny dₖ the two versions barely differ, because √dₖ is close to 1."
-          : top > 0.9
-            ? `Unscaled, one key takes <strong>${pct(top)}</strong> of the weight. Softmax is <strong>saturated</strong>: it acts like a hard max, and the gradient that would teach the other keys is nearly zero. Scaling keeps the distribution soft enough to learn from.`
-            : `At dₖ = ${dk} the unscaled scores are already ${fmt(Math.sqrt(dk), 1)}× too spread out. Drag dₖ higher, or resample: the orange bars keep collapsing onto a single key.`;
-
-      drawScaleBars(slot("plot"), wRaw, wScaled);
-
-      helpers.renderFormulaCards(slot("math"), [
-        {
-          title: "Where the √dₖ comes from",
-          description: "Assume the entries of q and k are independent, with mean 0 and variance 1. This is roughly true at initialisation.",
-          tex: String.raw`q \cdot k = \sum_{i=1}^{d_k} q_i k_i, \qquad \operatorname{Var}(q_i k_i) = 1`,
-          derivation: [
-            { tex: String.raw`\operatorname{Var}(q\cdot k) = \sum_{i=1}^{d_k} \operatorname{Var}(q_i k_i) = d_k = ${dk}`, result: `std = ${fmt(Math.sqrt(dk))}` },
-            { tex: String.raw`\operatorname{Var}\!\Big(\frac{q\cdot k}{\sqrt{d_k}}\Big) = \frac{d_k}{d_k} = 1`, result: "std = 1", note: "Dividing by the standard deviation brings the scores back to unit size, whatever dₖ is." },
-          ],
-          insight:
-            "<strong>The same disease as sigmoid.</strong> On the activation-functions page, a saturated sigmoid has a near-zero slope and stops learning. A saturated softmax fails the same way. The softmax Jacobian is diag(w) − wwᵀ, and every entry goes to 0 as one weight goes to 1.",
-        },
-      ]);
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
   function drawScaleBars(svg, wRaw, wScaled) {
     U().clear(svg);
     const width = 560;
@@ -1360,377 +720,6 @@
       );
       svgText(svg, pad.left + i * slotW + slotW / 2, height - 10, `key ${i + 1}`, { "text-anchor": "middle" });
     });
-  }
-
-  /* ── Step 5: multi-head ───────────────────────────────────────── */
-  function mountHeadsLesson(node) {
-    node.innerHTML = lesson(
-      "att-heads-lab",
-      5,
-      "Multi-head attention: several questions at once",
-      "One attention pattern can capture only one kind of relationship. Language has many: who a pronoun means, what a noun did, which adjective goes with which noun. So the transformer runs <strong>h smaller attentions side by side</strong>, each with its own W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup>. It then glues their outputs back together and mixes them with one more matrix, W<sup>O</sup>.",
-      "§3.2.2",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label>Sentence</label>
-              <div data-slot="sentences"></div>
-            </div>
-            <div class="control-group">
-              <label>Focus word (click one)</label>
-              <div data-slot="strip"></div>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-            <div class="soft-box">
-              <strong>Sizes in the paper</strong>
-              <p class="caption">d<sub>model</sub> = 512 is split into <b>h = 8</b> heads of d<sub>k</sub> = 512 / 8 = <b>64</b>.
-              Eight 64-wide heads cost about the same as one 512-wide head, so you get eight different patterns for the price of one.
-              Here: d<sub>model</sub> = 4, h = 2, d<sub>k</sub> = 2.</p>
-            </div>
-          </div>
-          <div class="two-column">
-            <div class="two-up" data-slot="heads"></div>
-            <div class="plot-card tl-pad">
-              <div class="tl-subhead">Shapes, from input to output</div>
-              <div data-slot="shapes"></div>
-            </div>
-            <div class="plot-card tl-pad">
-              <div class="tl-subhead" data-slot="feature-title"></div>
-              <div data-slot="features"></div>
-            </div>
-            <div class="equation-card">
-              <div class="formula-tex">${tex(String.raw`\operatorname{MultiHead}(Q,K,V) = \operatorname{Concat}(\text{head}_1,\ldots,\text{head}_h)\,W^O`, true)}</div>
-              <div class="formula-tex">${tex(String.raw`\text{head}_i = \operatorname{Attention}(XW_i^Q,\; XW_i^K,\; XW_i^V)`, true)}</div>
-            </div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    let sentenceIndex = 0;
-    let focus = SENTENCES[0].focus;
-
-    onClickAttr(slot("sentences"), "data-mh-sentence", (i) => {
-      sentenceIndex = i;
-      focus = SENTENCES[i].focus;
-      render();
-    });
-    onClickAttr(node, "data-mh-token", (i) => {
-      focus = i;
-      render();
-    });
-
-    function render() {
-      const tokens = math.tokensOf(SENTENCES[sentenceIndex]);
-      const X = math.embed(tokens);
-      const result = multiHead(X);
-      const word = tokens[focus];
-
-      slot("sentences").innerHTML = chips(SENTENCES.map((entry) => `“${entry.text}”`), sentenceIndex, "data-mh-sentence");
-      slot("strip").innerHTML = sentenceStrip(tokens, focus, null, "data-mh-token");
-
-      slot("heads").innerHTML = HEADS.map((head, h) => {
-        const A = result.heads[h].A;
-        return `
-          <div class="plot-card tl-pad">
-            <div class="tl-subhead">${head.name}</div>
-            <p class="caption">${head.idea}</p>
-            ${sentenceStrip(tokens, focus, A[focus], "data-mh-token", { label: `“${word}” looks at` })}
-            ${heatmap(A, { rows: tokens, cols: tokens, focusRow: focus, maxAbs: 1, rowAttr: "data-mh-token", colHint: "keys →" })}
-          </div>`;
-      }).join("");
-
-      const n = tokens.length;
-      slot("shapes").innerHTML = `
-        <div class="tl-flow">
-          <span class="tl-flow-box">X<small>${n} × 4</small></span><span class="tl-flow-arrow">→</span>
-          <span class="tl-flow-stack">
-            <span class="tl-flow-box">head 1<small>${n} × 2</small></span>
-            <span class="tl-flow-box">head 2<small>${n} × 2</small></span>
-          </span><span class="tl-flow-arrow">→</span>
-          <span class="tl-flow-box">concat<small>${n} × 4</small></span><span class="tl-flow-arrow">→</span>
-          <span class="tl-flow-box"><span>× W<sup>O</sup></span><small>${n} × 4</small></span>
-        </div>
-        <p class="caption">The output has the same shape as the input. That is what lets the paper stack the block 6 times and add the input back in (next page).</p>`;
-
-      slot("feature-title").textContent = `“${word}”: its own vector vs. what multi-head attention brings back`;
-      slot("features").innerHTML = `${featureCompare(FEATURES, [
-        { name: "its own vector x", values: X[focus], color: C().c },
-        { name: "multi-head output", values: result.out[focus], color: C().b },
-      ])}
-        <p class="caption">Head 1 fills in <b>thing / alive</b> and head 2 fills in <b>action / refers back</b>. W<sup>O</sup> is the identity here so the names survive. A trained W<sup>O</sup> mixes the heads together.</p>`;
-
-      const h2 = result.heads[1].A[focus];
-      const actions = tokens
-        .map((token, j) => ({ token, w: h2[j] }))
-        .filter((entry) => VOCAB[entry.token][2] > 0.5)
-        .sort((a, b) => b.w - a.w);
-      slot("callout").innerHTML =
-        actions.length > 1 && h2[focus] < 0.5 && VOCAB[word][2] < 0.5
-          ? `Head 2 spreads “${word}” across <strong>${actions.map((entry) => `${entry.token} ${pct(entry.w)}`).join(", ")}</strong>. It can't tell which action belongs to “${word}”: the words could be in any order and the scores would be the same. <strong>Attention has no sense of word order.</strong> The <a href="./algorithm.html?id=transformer#tf-order">Transformer page</a> fixes that next.`
-          : `Two heads, two different questions about the same sentence. Click a noun or “it” to see the heads disagree about where to look.`;
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
-  function mountAttentionQuiz(node) {
-    node.innerHTML = lesson(
-      "att-check-lab",
-      6,
-      "Check yourself",
-      "Try to answer each question before you open it. If one surprises you, go back to the step it comes from.",
-      "",
-      `${quiz([
-        {
-          q: "Why can't attention just use the raw word vectors (Q = K = V = X)?",
-          a: "Two reasons (step 1). Every word would score highest with itself, and relevance would require similarity. “it” needs “cat” even though the two words aren't alike. Separate W<sup>Q</sup> and W<sup>K</sup> let “looking for” differ from “offering”.",
-        },
-        {
-          q: "A word's query is all zeros. What does its attention look like?",
-          a: "Every score q·kⱼ is 0, so softmax gives every word the same weight 1/n and the output is the plain average of the values. A head can effectively opt out for some words (step 2, try “cat” in head 1).",
-        },
-        {
-          q: "What goes wrong if you double dₖ but forget the √dₖ?",
-          a: "The spread of the scores grows by √2. Softmax gets peakier, moves toward a one-hot pick, and its gradient shrinks. Training slows or stalls (step 4).",
-        },
-        {
-          q: "Why are 8 heads of size 64 about as costly as 1 head of size 512?",
-          a: "The projections have the same total size: 8 × (512 × 64) = 512 × 512. The score matrices are n × n per head either way. You get 8 independent patterns for roughly the same compute (step 5).",
-        },
-        {
-          q: "Swap the order of the words. What happens to each word's attention output?",
-          a: "Nothing, apart from moving with the word. The outputs are the same vectors, just reordered, because nothing in QKᵀ depends on position. That is the problem positional encoding solves on the Transformer page.",
-        },
-      ])}
-      <div class="tl-next">
-        <div>
-          <div class="eyebrow">Next</div>
-          <strong>Build the full Transformer from this block</strong>
-          <p class="caption">Word order, residual connections, the decoder, masking and the training recipe from the paper.</p>
-        </div>
-        <a class="button primary" href="./algorithm.html?id=transformer">Go to the Transformer →</a>
-      </div>`
-    );
-  }
-
-  /* ════════════════════════════════════════════════════════════════
-     TRANSFORMER PAGE
-     ════════════════════════════════════════════════════════════════ */
-
-  function mountTransformer(rootNode, helpers) {
-    const nav = [
-      { id: "tf-map", label: "The whole map" },
-      { id: "tf-order", label: "Word order is lost" },
-      { id: "tf-pe", label: "Positional encoding" },
-      { id: "tf-block", label: "The encoder block" },
-      { id: "tf-mask", label: "Decoder: no peeking" },
-      { id: "tf-generate", label: "Decoder: translating" },
-      { id: "tf-why", label: "Why it beat RNNs" },
-      { id: "tf-train", label: "Training recipe" },
-      { id: "tf-check", label: "Check yourself" },
-    ];
-
-    rootNode.innerHTML = `
-      <section class="lab tl-intro">
-        <div class="section-header">
-          <div>
-            <div class="eyebrow">Start here</div>
-            <h2>Attention, plus four things that make it work</h2>
-          </div>
-        </div>
-        <p class="section-intro">
-          The <a href="./algorithm.html?id=attention">Attention page</a> built the core operation: every word gathers
-          information from every other word. A Transformer wraps that operation with four things it can't do alone:
-          a sense of <strong>word order</strong>, a <strong>per-word feed-forward network</strong> (your ANN),
-          <strong>residual connections with normalisation</strong> so dozens of layers still train, and a
-          <strong>decoder</strong> that writes the output one word at a time. The paper's title is literal. There is
-          no recurrence and no convolution, only attention and these supporting parts.
-        </p>
-        <div class="tl-intro-grid">
-          <div class="soft-box">
-            <strong>Running examples</strong>
-            <p class="caption">The encoder reads “the cat sat because it was tired” (the same sentence and the same toy weights as the Attention page).
-            The decoder translates “I love cats” → “ich liebe Katzen”, English to German, which was the paper's main task.</p>
-          </div>
-          <div class="soft-box">
-            <strong>Toy vs. paper</strong>
-            <p class="caption">Here: d<sub>model</sub> = 4, h = 2, d<sub>ff</sub> = 8, one layer. Paper (base): d<sub>model</sub> = 512, h = 8, d<sub>ff</sub> = 2048, N = 6 layers.
-            The decoder's weights are set by hand to illustrate the ideas.</p>
-          </div>
-        </div>
-        ${lessonNav(nav)}
-      </section>
-      <div id="tf-map"></div>
-      <div id="tf-order"></div>
-      <div id="tf-pe"></div>
-      <div id="tf-block"></div>
-      <div id="tf-mask"></div>
-      <div id="tf-generate"></div>
-      <div id="tf-why"></div>
-      <div id="tf-train"></div>
-      <div id="tf-check"></div>
-    `;
-
-    const host = (id) => rootNode.querySelector(`#${id}`);
-    mountMapLesson(host("tf-map"));
-    mountOrderLesson(host("tf-order"));
-    mountPositionLesson(host("tf-pe"), helpers);
-    mountBlockLesson(host("tf-block"), helpers);
-    mountMaskLesson(host("tf-mask"));
-    mountGenerateLesson(host("tf-generate"));
-    mountWhyLesson(host("tf-why"));
-    mountTrainLesson(host("tf-train"));
-    mountTransformerQuiz(host("tf-check"));
-  }
-
-  /* ── Step 1: the architecture map (the paper's Figure 1) ──────── */
-
-  const PARTS = {
-    embed: {
-      title: "Input / output embedding",
-      what: "Looks up a learned vector for each token. Mathematically it is a one-hot vector times a matrix: a dense layer with no bias.",
-      why: "The network needs numbers, and words with similar meanings should get similar vectors.",
-      paper: "§3.4",
-      sizes: "≈37,000 shared sub-word tokens → 512 numbers each. The paper multiplies embeddings by √d<sub>model</sub> and shares one matrix between both embeddings and the final Linear layer.",
-      link: null,
-    },
-    pe: {
-      title: "Positional encoding ⊕",
-      what: "Adds a fixed pattern of sines and cosines, different for every position, to each word vector.",
-      why: "Attention ignores order. This addition is the <em>only</em> place where word order enters the model.",
-      paper: "§3.5",
-      sizes: "Same width as the embedding (512), so it can simply be added.",
-      link: "tf-order",
-    },
-    mha: {
-      title: "Multi-head self-attention",
-      what: "Every source word looks at every source word, in 8 heads at once.",
-      why: "Moves information <em>between</em> words, so each word's vector picks up its context.",
-      paper: "§3.2",
-      sizes: "8 heads × d<sub>k</sub> = 64. Score matrix n × n per head.",
-      link: "attention",
-    },
-    addnorm: {
-      title: "Add & Norm",
-      what: "Adds the sub-layer's input back to its output (x + Sublayer(x)), then applies layer normalisation.",
-      why: "The residual “add” gives gradients a direct path through deep stacks. The norm keeps each word vector at a steady scale.",
-      paper: "§3.1, §5.4",
-      sizes: "Dropout (0.1) is applied to the sub-layer output just before the add.",
-      link: "tf-block",
-    },
-    ffn: {
-      title: "Position-wise feed-forward",
-      what: "One small ANN, 512 → 2048 → 512 with ReLU, applied to <em>each word separately</em> using the same weights.",
-      why: "Attention mixes information across words. The FFN then processes each word with what it gathered. About two thirds of the parameters live here.",
-      paper: "§3.3",
-      sizes: "d<sub>ff</sub> = 2048 (4 × d<sub>model</sub>).",
-      link: "tf-block",
-    },
-    masked: {
-      title: "Masked multi-head self-attention",
-      what: "Each target word attends only to itself and the words <em>before</em> it.",
-      why: "During training the whole target sentence is fed in at once. The mask stops position i from peeking at the word it is supposed to predict.",
-      paper: "§3.2.3",
-      sizes: "Same as encoder attention, with −∞ added above the diagonal.",
-      link: "tf-mask",
-    },
-    cross: {
-      title: "Encoder–decoder (cross) attention",
-      what: "Queries come from the decoder. Keys and values come from the encoder's final output.",
-      why: "This is where the translation reads the source sentence. Every decoder layer can look at any source word directly.",
-      paper: "§3.2.3",
-      sizes: "Score matrix: target length × source length.",
-      link: "tf-generate",
-    },
-    linear: {
-      title: "Linear",
-      what: "Maps each 512-number vector to one score per vocabulary word.",
-      why: "Turns “a vector that means something” into “a score for every possible next word”.",
-      paper: "§3.4",
-      sizes: "512 → ≈37,000, with weights shared with the embeddings.",
-      link: "tf-generate",
-    },
-    softmax: {
-      title: "Softmax",
-      what: "Turns the scores into next-word probabilities.",
-      why: "Training pushes up the probability of the correct next word (cross-entropy with label smoothing).",
-      paper: "§3.4, §5.4",
-      sizes: "One probability distribution per position.",
-      link: "tf-generate",
-    },
-    stack: {
-      title: "N× (the stack)",
-      what: "The block inside the frame is repeated N = 6 times, each copy with its own weights.",
-      why: "Each layer refines the previous one. Because every block outputs the same shape it takes in, stacking is trivial.",
-      paper: "§3.1",
-      sizes: "N = 6 in both encoder and decoder.",
-      link: "tf-block",
-    },
-  };
-
-  function mountMapLesson(node) {
-    node.innerHTML = lesson(
-      "tf-map-lab",
-      1,
-      "The whole map: the paper's Figure 1",
-      "This is the diagram everyone recognises from the paper. On the left, the <strong>encoder</strong> reads the source sentence. On the right, the <strong>decoder</strong> writes the translation. <strong>Click any box</strong> to see what it does, why it is there, and which step on this page covers it. The rest of the page works through the boxes bottom to top.",
-      "§3 · Figure 1",
-      `
-        <div class="tl-map">
-          <div class="plot-card">
-            <svg data-slot="svg" viewBox="0 0 720 640" role="img" aria-label="Transformer architecture: encoder on the left, decoder on the right"></svg>
-          </div>
-          <div class="tl-map-info" data-slot="info" aria-live="polite"></div>
-        </div>
-      `
-    );
-
-    const svg = node.querySelector('[data-slot="svg"]');
-    const info = node.querySelector('[data-slot="info"]');
-    let selected = "mha";
-
-    function select(part) {
-      selected = part;
-      render();
-    }
-
-    svg.addEventListener("click", (event) => {
-      const target = event.target.closest("[data-part]");
-      if (target) select(target.getAttribute("data-part"));
-    });
-    svg.addEventListener("keydown", (event) => {
-      const target = event.target.closest("[data-part]");
-      if (target && (event.key === "Enter" || event.key === " ")) {
-        event.preventDefault();
-        select(target.getAttribute("data-part"));
-      }
-    });
-
-    function render() {
-      drawArchitecture(svg, selected);
-      const part = PARTS[selected];
-      const link = part.link === "attention"
-        ? `<a class="button secondary" href="./algorithm.html?id=attention">Covered on the Attention page →</a>`
-        : part.link
-          ? `<a class="button secondary" href="#${part.link}">Go to that step ↓</a>`
-          : "";
-      info.innerHTML = `
-        <div class="eyebrow">Selected</div>
-        <h3>${part.title}</h3>
-        <dl class="tl-def">
-          <dt>What it does</dt><dd>${part.what}</dd>
-          <dt>Why it's there</dt><dd>${part.why}</dd>
-          <dt>Sizes in the paper</dt><dd>${part.sizes}</dd>
-        </dl>
-        <div class="tl-map-foot"><span class="tl-paper">📄 Paper ${part.paper}</span>${link}</div>`;
-    }
-
-    render();
-    U().onRedraw(render);
   }
 
   function drawArchitecture(svg, selected) {
@@ -1876,641 +865,6 @@
     });
   }
 
-  /* ── Step 2: attention can't see word order ───────────────────── */
-  function mountOrderLesson(node) {
-    node.innerHTML = lesson(
-      "tf-order-lab",
-      2,
-      "The problem: attention can't see word order",
-      "Nothing in QKᵀ depends on <em>where</em> a word sits. Each score depends only on the two words involved. So feed in the same words in a different order and every word gets <strong>exactly the same output</strong>, just in a different row. To plain attention, “dog bites man” and “man bites dog” are the same sentence. An RNN never had this problem because it reads in order. The transformer needs another way to know where each word is.",
-      "§3.5",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label class="tl-toggle"><input type="checkbox" data-slot="pe" /> Add positional encoding to the inputs</label>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-            <p class="caption">This demo uses its own small 4-number vectors and random (seeded) weights. The conclusion holds for <em>any</em> weights.</p>
-          </div>
-          <div class="two-column">
-            <div class="two-up" data-slot="maps"></div>
-            <div class="table-panel">
-              <table>
-                <thead><tr><th>Word</th><th>In “dog bites man”</th><th>In “man bites dog”</th><th>Diff.</th></tr></thead>
-                <tbody data-slot="table"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    slot("pe").addEventListener("change", render);
-
-    function render() {
-      const withPe = slot("pe").checked;
-      const a = ["dog", "bites", "man"];
-      const b = ["man", "bites", "dog"];
-      const runA = orderDemo(a, withPe);
-      const runB = orderDemo(b, withPe);
-      slot("maps").innerHTML = [
-        [a, runA],
-        [b, runB],
-      ]
-        .map(
-          ([tokens, run]) => `
-          <div class="plot-card tl-pad">
-            <div class="tl-subhead">“${tokens.join(" ")}”: attention weights</div>
-            ${heatmap(run.A, { rows: tokens, cols: tokens, maxAbs: 1, colHint: "keys →" })}
-          </div>`
-        )
-        .join("");
-
-      let biggest = 0;
-      slot("table").innerHTML = a
-        .map((word, i) => {
-          const j = b.indexOf(word);
-          const oa = runA.O[i];
-          const ob = runB.O[j];
-          const diff = Math.hypot(...oa.map((v, d) => v - ob[d]));
-          biggest = Math.max(biggest, diff);
-          const vec = (v) => `(${v.map((x) => fmt(x)).join(", ")})`;
-          return `<tr><td><strong>${word}</strong></td><td class="mono">${vec(oa)}</td><td class="mono">${vec(ob)}</td><td class="mono">${fmt(diff, 3)}</td></tr>`;
-        })
-        .join("");
-
-      slot("callout").innerHTML = withPe
-        ? `With positions added, “dog” as the biter and “dog” as the bitten now get <strong>different</strong> outputs (difference up to ${fmt(biggest, 3)}). The model can finally tell who did what.`
-        : `Every difference is <strong>0.000</strong>. The second heatmap is the first one with its rows and columns shuffled. The model can't tell who bit whom. Tick the box to add positions.`;
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
-  /* ── Step 3: positional encoding ──────────────────────────────── */
-  function mountPositionLesson(node, helpers) {
-    const D = 32;
-    const P = 50;
-    const pairsShown = [0, 1, 3, 7];
-    node.innerHTML = lesson(
-      "tf-pe-lab",
-      3,
-      "Positional encoding: a clock for every position",
-      "The fix is to <strong>add</strong> a position signal to each word vector before the first layer. The paper's signal works like a set of clock hands that turn at different speeds. The first pair of numbers spins fast (about one turn every 6 positions), the next more slowly, and the last takes thousands of positions per turn. Read together, the hands give every position a unique time, much like the digits of a binary counter, but smooth. Nothing here is learned: the pattern is a fixed formula.",
-      "§3.5",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label for="pe-pos">Position</label>
-              <div class="range-row">
-                <input id="pe-pos" type="range" min="0" max="${P - 1}" step="1" value="7" />
-                <span class="range-value" id="pe-pos-value">7</span>
-              </div>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-            <div class="soft-box">
-              <strong>Why add it, rather than append it?</strong>
-              <p class="caption">Adding keeps the width at d<sub>model</sub>, so nothing downstream changes. The network can learn to keep meaning and position in different directions of the same space. The paper multiplies embeddings by √d<sub>model</sub> first, so position doesn't drown out meaning.</p>
-            </div>
-          </div>
-          <div class="two-column">
-            <div class="plot-card">
-              <svg data-slot="heat" viewBox="0 0 560 300" aria-label="Positional encoding matrix: positions by dimensions"></svg>
-            </div>
-            <div class="plot-card tl-pad">
-              <div class="tl-subhead">Four of the 16 “clock hands” at this position</div>
-              <div class="tl-dials" data-slot="dials"></div>
-            </div>
-            <div class="plot-card">
-              <svg data-slot="sim" viewBox="0 0 560 220" aria-label="Similarity of this position's code to every other position"></svg>
-            </div>
-            <div class="equation-card" data-slot="math"></div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    const posInput = node.querySelector("#pe-pos");
-    const posValue = node.querySelector("#pe-pos-value");
-    posInput.addEventListener("input", render);
-    const omega = (pair) => 1 / Math.pow(10000, (2 * pair) / D);
-
-    function render() {
-      const pos = Number(posInput.value);
-      posValue.textContent = String(pos);
-      const codes = Array.from({ length: P }, (_, p) => positionalEncoding(p, D));
-
-      /* Heatmap of the whole matrix. */
-      const heat = slot("heat");
-      U().clear(heat);
-      const pad = { left: 44, top: 26, right: 12, bottom: 24 };
-      const cellW = (560 - pad.left - pad.right) / D;
-      const cellH = (300 - pad.top - pad.bottom) / P;
-      svgText(heat, pad.left, 16, `PE matrix: ${P} positions (rows) × ${D} dimensions (columns)`, { class: "svg-title" });
-      codes.forEach((row, p) =>
-        row.forEach((value, d) => {
-          heat.appendChild(
-            U().svgEl("rect", {
-              x: pad.left + d * cellW,
-              y: pad.top + p * cellH,
-              width: cellW + 0.4,
-              height: cellH + 0.4,
-              fill: rgba(value >= 0 ? C().a : C().b, Math.abs(value) * 0.9),
-            })
-          );
-        })
-      );
-      heat.appendChild(
-        U().svgEl("rect", {
-          x: pad.left - 2,
-          y: pad.top + pos * cellH - 1,
-          width: D * cellW + 4,
-          height: cellH + 2,
-          fill: "none",
-          stroke: C().ink,
-          "stroke-width": 2,
-        })
-      );
-      svgText(heat, pad.left - 6, pad.top + pos * cellH + cellH, `pos ${pos}`, { "text-anchor": "end" });
-      svgText(heat, pad.left, 300 - 8, "← fast-turning dims");
-      svgText(heat, 560 - pad.right, 300 - 8, "slow-turning dims →", { "text-anchor": "end" });
-
-      /* Clock dials for a few frequency pairs. */
-      slot("dials").innerHTML = pairsShown
-        .map((pair) => {
-          const angle = pos * omega(pair);
-          const period = (2 * Math.PI) / omega(pair);
-          const x = 40 + 30 * Math.sin(angle);
-          const y = 40 - 30 * Math.cos(angle);
-          return `
-            <div class="tl-dial">
-              <svg viewBox="0 0 80 80" aria-hidden="true">
-                <circle cx="40" cy="40" r="34" fill="none" stroke="${C().faint}" stroke-width="2" />
-                <line x1="40" y1="40" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${C().b}" stroke-width="3.5" stroke-linecap="round" />
-                <circle cx="40" cy="40" r="3.5" fill="${C().ink}" />
-              </svg>
-              <div><b>dims ${2 * pair}, ${2 * pair + 1}</b><br /><span class="caption">sin = ${fmt(Math.sin(angle))}, cos = ${fmt(Math.cos(angle))}</span><br /><span class="caption">one turn per ${period < 100 ? fmt(period, 1) : Math.round(period)} positions</span></div>
-            </div>`;
-        })
-        .join("");
-
-      /* Similarity of this code to every other position. */
-      const sims = codes.map((code) => math.dotV(codes[pos], code));
-      const sim = slot("sim");
-      const chart = U().makeChart(sim, {
-        xDomain: [0, P - 1],
-        yDomain: [Math.min(...sims) - 0.5, D / 2 + 1],
-        title: `Dot product of position ${pos}'s code with every position`,
-      });
-      sim.appendChild(
-        U().svgEl("path", {
-          d: U().pathFromPoints(sims.map((value, p) => ({ x: p, y: value })), chart.xScale, chart.yScale),
-          fill: "none",
-          stroke: C().a,
-          "stroke-width": 2.5,
-        })
-      );
-      sim.appendChild(
-        U().svgEl("circle", { cx: chart.xScale(pos), cy: chart.yScale(sims[pos]), r: 6, fill: C().b, stroke: C().ring, "stroke-width": 2 })
-      );
-
-      const near = sims[Math.min(P - 1, pos + 1)];
-      const far = sims[pos + 20 < P ? pos + 20 : Math.max(0, pos - 20)];
-      slot("callout").innerHTML = `Position ${pos} is matched best by itself (dot product ${fmt(sims[pos], 1)}), then its neighbours (${fmt(near, 1)}), with far positions lower (${fmt(far, 1)}). Nearby positions get similar codes, which gives attention a way to prefer nearby words.`;
-
-      const k = 3;
-      const theta = k * omega(0);
-      helpers.renderFormulaCards(slot("math"), [
-        {
-          title: "The formula, and why the paper chose it",
-          description: "Each pair of dimensions (2i, 2i+1) is one clock hand: a sine and a cosine of the same angle, turning at its own speed ωᵢ.",
-          tex: String.raw`\begin{aligned} PE_{(pos,\,2i)} &= \sin\!\big(pos\cdot\omega_i\big) \\ PE_{(pos,\,2i+1)} &= \cos\!\big(pos\cdot\omega_i\big) \end{aligned} \qquad \omega_i = \frac{1}{10000^{2i/d_{\text{model}}}}`,
-          derivation: [
-            {
-              tex: String.raw`\begin{pmatrix}\sin\omega(p{+}k)\\ \cos\omega(p{+}k)\end{pmatrix} = R(\omega k)\begin{pmatrix}\sin\omega p\\ \cos\omega p\end{pmatrix}`,
-              result: "shift = rotate",
-            },
-            {
-              tex: String.raw`R(\theta) = \begin{pmatrix}\cos\theta & \sin\theta\\ -\sin\theta & \cos\theta\end{pmatrix}`,
-              result: "rotation",
-              note: "Moving k positions forward is the same fixed rotation, whatever p is. The paper's reasoning: “PE<sub>pos+k</sub> can be represented as a linear function of PE<sub>pos</sub>”, so relative offsets are easy for attention to learn.",
-            },
-            {
-              tex: String.raw`\text{e.g. } k = ${k},\ \omega_0 = 1:\ \text{rotate by } ${fmt(theta, 2)} \text{ rad at every position}`,
-              result: "same for all p",
-            },
-          ],
-          insight:
-            "<strong>Learned or fixed?</strong> The paper also tried learned position vectors and got nearly identical results (Table 3, row E). It kept the sinusoids because they might extend to sentences longer than any seen in training.",
-        },
-      ]);
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
-  /* ── Step 4: one encoder block, stage by stage ────────────────── */
-  function mountBlockLesson(node, helpers) {
-    const sentence = SENTENCES[0];
-    const tokens = math.tokensOf(sentence);
-    const X = math.embed(tokens);
-    const run = encoderLayer(X);
-    const n = tokens.length;
-    const hiddenCols = Array.from({ length: math.FFN.W1[0].length }, (_, j) => `h${j + 1}`);
-
-    const stages = [
-      {
-        name: "Input",
-        flow: 0,
-        matrix: run.X,
-        cols: FEATURES,
-        title: "X: word vectors",
-        text: "One row per word, the same four named features as the Attention page. (We leave positional encoding out here so the feature names stay readable. In the real model it has already been added.)",
-        tex: String.raw`X \in \mathbb{R}^{${n}\times 4}`,
-      },
-      {
-        name: "Multi-head attention",
-        flow: 1,
-        matrix: run.mha.out,
-        cols: FEATURES,
-        title: "Z = MultiHead(X)",
-        text: "<strong>Communication between words.</strong> Every word gathers information from the others, exactly as on the Attention page. “it” comes back carrying <em>alive</em> from “cat”.",
-        tex: String.raw`Z = \operatorname{MultiHead}(X, X, X)`,
-        compare: () => [run.X, "x", run.mha.out, "attention output z"],
-      },
-      {
-        name: "Add (residual)",
-        flow: 2,
-        matrix: run.added1,
-        cols: FEATURES,
-        title: "X + Z",
-        text: "<strong>Add the input back.</strong> The attention output is an <em>update</em> on top of the original word, not a replacement. “it” keeps “refers back” and gains “alive”.",
-        tex: String.raw`X + Z`,
-        compare: () => [run.X, "x", run.added1, "x + z"],
-        residual: true,
-      },
-      {
-        name: "Layer norm",
-        flow: 3,
-        matrix: run.norm1,
-        cols: FEATURES,
-        title: "LayerNorm(X + Z)",
-        text: "<strong>Re-centre and re-scale each word on its own</strong>: subtract the row's mean and divide by its standard deviation. Each word vector stays at a steady size however many layers are stacked. (The learned scale γ and shift β are 1 and 0 here.)",
-        tex: String.raw`\operatorname{LN}(x) = \gamma\,\frac{x - \mu}{\sigma} + \beta`,
-        compare: () => [run.added1, "before norm", run.norm1, "after norm"],
-        norm: true,
-      },
-      {
-        name: "Feed-forward: hidden",
-        flow: 4,
-        matrix: run.hidden,
-        cols: hiddenCols,
-        title: "ReLU(x W₁ + b₁)",
-        text: "<strong>Computation within each word.</strong> This is a plain ANN hidden layer, 4 → 8 here (512 → 2048 in the paper), applied to <em>each row separately with the same weights</em>. Zeros are ReLU switching units off. (FFN weights here are random but fixed.)",
-        tex: String.raw`H = \max(0,\; xW_1 + b_1)`,
-      },
-      {
-        name: "Feed-forward: output",
-        flow: 4,
-        matrix: run.ffn,
-        cols: FEATURES,
-        title: "H W₂ + b₂",
-        text: "The second layer projects back to d<sub>model</sub> = 4, so the block's output shape matches its input.",
-        tex: String.raw`\operatorname{FFN}(x) = \max(0,\; xW_1 + b_1)\,W_2 + b_2`,
-      },
-      {
-        name: "Add & norm → output",
-        flow: 5,
-        matrix: run.out,
-        cols: FEATURES,
-        title: "Block output",
-        text: "Add the FFN's input back and normalise again. The result has the same shape as X, which is what lets the paper stack <strong>6</strong> of these blocks, each feeding the next.",
-        tex: String.raw`\operatorname{LN}\big(h + \operatorname{FFN}(h)\big),\quad h = \operatorname{LN}(X + Z)`,
-        compare: () => [run.X, "block input", run.out, "block output"],
-        residual: true,
-      },
-    ];
-
-    const flowNames = ["Input", "Attention", "Add", "Norm", "Feed-forward", "Add & Norm"];
-
-    node.innerHTML = lesson(
-      "tf-block-lab",
-      4,
-      "The encoder block: talk, then think",
-      "One encoder layer alternates two jobs. <strong>Attention</strong> lets words exchange information (communication). The <strong>feed-forward network</strong> then processes each word on its own (computation). Each job is wrapped in a residual “add” and a layer norm. Step through it and click any word to follow its row.",
-      "§3.1 · §3.3",
-      `
-        <div class="tl-stepper">
-          <div class="tl-flow" data-slot="flow"></div>
-          <div class="tl-stepper-bar">
-            <div data-slot="dots"></div>
-            <div class="step-controls">
-              <button type="button" class="button secondary" data-step="-1">← Previous</button>
-              <button type="button" class="button primary" data-step="1">Next stage →</button>
-            </div>
-          </div>
-          <div class="tl-stage">
-            <div class="tl-stage-text">
-              <h3 data-slot="title"></h3>
-              <p data-slot="text"></p>
-              <div class="formula-tex" data-slot="tex"></div>
-              <div data-slot="extra"></div>
-            </div>
-            <div class="tl-stage-mats">
-              <div data-slot="mat"></div>
-              <div data-slot="compare"></div>
-            </div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    let stage = 0;
-    let focus = sentence.focus;
-
-    node.querySelectorAll("[data-step]").forEach((button) =>
-      button.addEventListener("click", () => {
-        stage = Math.max(0, Math.min(stages.length - 1, stage + Number(button.getAttribute("data-step"))));
-        render();
-      })
-    );
-    onClickAttr(slot("dots"), "data-block-stage", (i) => {
-      stage = i;
-      render();
-    });
-    onClickAttr(slot("mat"), "data-block-row", (i) => {
-      focus = i;
-      render();
-    });
-
-    function render() {
-      const current = stages[stage];
-      slot("flow").innerHTML = flowNames
-        .map((name, i) => `<span class="tl-flow-box${i === current.flow ? " is-on" : ""}">${name}</span>`)
-        .join('<span class="tl-flow-arrow">→</span>');
-      slot("dots").innerHTML = chips(stages.map((entry, i) => `${i + 1}. ${entry.name}`), stage, "data-block-stage");
-      slot("title").textContent = `${stage + 1}. ${current.name}`;
-      slot("text").innerHTML = current.text;
-      slot("tex").innerHTML = tex(current.tex, true);
-      slot("mat").innerHTML = heatmap(current.matrix, {
-        rows: tokens,
-        cols: current.cols,
-        focusRow: focus,
-        rowAttr: "data-block-row",
-        title: current.title,
-        shape: `${n} × ${current.cols.length}`,
-      });
-
-      if (current.compare) {
-        const [a, aName, b, bName] = current.compare();
-        slot("compare").innerHTML = `
-          <div class="plot-card tl-pad">
-            <div class="tl-subhead">“${tokens[focus]}”: ${aName} vs ${bName}</div>
-            ${featureCompare(FEATURES, [
-              { name: aName, values: a[focus], color: C().c },
-              { name: bName, values: b[focus], color: C().b },
-            ], Math.max(1.2, maxAbsOf([a[focus], b[focus]])))}
-          </div>`;
-      } else {
-        slot("compare").innerHTML = "";
-      }
-
-      let extra = "";
-      if (current.residual) {
-        extra = `<div class="insight-box"><strong>Why the residual “add” matters.</strong> ${tex(String.raw`\frac{\partial\,(x + F(x))}{\partial x} = I + \frac{\partial F}{\partial x}`)}. Even if a sub-layer's own gradient is tiny, the identity term <b>I</b> passes the gradient back unchanged. That fixes the vanishing gradients you saw on the <a href="./algorithm.html?id=backpropagation">Backpropagation</a> page and makes a stack of 6 (or 100) layers trainable.</div>`;
-      } else if (current.norm) {
-        const row = run.added1[focus];
-        const mean = row.reduce((a, b) => a + b, 0) / row.length;
-        const std = Math.sqrt(row.reduce((a, b) => a + (b - mean) ** 2, 0) / row.length);
-        extra = `<div class="insight-box">For “${tokens[focus]}”: μ = ${fmt(mean, 3)}, σ = ${fmt(std, 3)}. After normalising, this row has mean 0 and standard deviation 1. Unlike batch norm, it uses only this word's own numbers, so it works for one sentence at a time and for any length.</div>`;
-      } else if (stage === 4) {
-        const zeros = run.hidden[focus].filter((v) => v === 0).length;
-        extra = `<div class="insight-box">“${tokens[focus]}” switches off <strong>${zeros} of ${run.hidden[focus].length}</strong> hidden units. This is the ANN you already know. The only new detail is that it runs once per word, and every word shares its weights.</div>`;
-      }
-      slot("extra").innerHTML = extra;
-
-      node.querySelector('[data-step="-1"]').disabled = stage === 0;
-      node.querySelector('[data-step="1"]').disabled = stage === stages.length - 1;
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
-  /* ── Step 5: the causal mask ──────────────────────────────────── */
-  function mountMaskLesson(node) {
-    node.innerHTML = lesson(
-      "tf-mask-lab",
-      5,
-      "The decoder, part 1: no peeking",
-      "When translating, the decoder writes one word at a time. In training, though, the whole target sentence is fed in at once, shifted right by one, so every position learns in parallel. Row “ich” must predict the next word, “liebe”. Without protection, it could simply <em>look at</em> “liebe” in its own input. The fix is to set every score above the diagonal to <strong>−∞</strong> before the softmax. e<sup>−∞</sup> = 0, so future words get exactly zero weight.",
-      "§3.2.3",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label class="tl-toggle"><input type="checkbox" data-slot="mask" checked /> Apply the causal mask</label>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-            <div class="soft-box">
-              <strong>What each row must predict</strong>
-              <ul class="tl-list">
-                ${DECODER_INPUT.map((token, i) => `<li><b>${token.replace("<", "&lt;").replace(">", "&gt;")}</b> → ${i < TARGET.length ? TARGET[i] : "&lt;/s&gt; (end)"}</li>`).join("")}
-              </ul>
-            </div>
-          </div>
-          <div class="two-column">
-            <div class="two-up" data-slot="maps"></div>
-            <p class="caption">Scores are hand-set for this demo so that, unmasked, each row leans on exactly the word it should be predicting, which is the shortcut a real model would find.</p>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    slot("mask").addEventListener("change", render);
-    const rows = DECODER_INPUT.map((token) => token.replace("<", "&lt;").replace(">", "&gt;"));
-
-    function render() {
-      const masked = slot("mask").checked;
-      const scores = maskedScores(SELF_SCORES, masked);
-      const weights = scores.map(softmax);
-      slot("maps").innerHTML = `
-        <div class="plot-card tl-pad">${heatmap(scores, { rows, cols: rows, maxAbs: 3, title: masked ? "Scores + mask" : "Scores (no mask)", colHint: "keys →" })}</div>
-        <div class="plot-card tl-pad">${heatmap(weights, { rows, cols: rows, maxAbs: 1, title: "Softmax weights", colHint: "keys →" })}</div>`;
-      const cheat = weights[1][2];
-      slot("callout").innerHTML = masked
-        ? `Everything above the diagonal is <strong>0</strong>. Row “ich” sees only “&lt;s&gt;” and “ich”, exactly what it will have when generating for real. Training and generation now match.`
-        : `Row “ich” puts <strong>${pct(cheat)}</strong> of its attention on “liebe”, <em>the very word it is meant to predict</em>. The model would learn to copy, get near-perfect training loss, and fail at generation time, when that word doesn't exist yet.`;
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
-  /* ── Step 6: generation with cross-attention ──────────────────── */
-  function mountGenerateLesson(node) {
-    node.innerHTML = lesson(
-      "tf-generate-lab",
-      6,
-      "The decoder, part 2: reading the source and writing the translation",
-      "The encoder runs <strong>once</strong> and turns “I love cats” into a set of vectors. The decoder then loops: given the words written so far, it predicts the next one. In each decoder layer, <strong>cross-attention</strong> sends a query from the current position to the encoder's keys and values, which is how the translation looks at the source. Press “Next word” to watch it translate.",
-      "§3.2.3 · §3.4",
-      `
-        <div class="tl-stepper">
-          <div class="tl-stepper-bar">
-            <div class="tl-gen-status" data-slot="status"></div>
-            <div class="step-controls">
-              <button type="button" class="button secondary" data-gen="-1">← Back</button>
-              <button type="button" class="button primary" data-gen="1">Next word →</button>
-              <button type="button" class="button ghost" data-gen="0">Restart</button>
-            </div>
-          </div>
-          <div class="tl-gen">
-            <div class="plot-card tl-pad">
-              <div class="tl-subhead">Encoder input (read once)</div>
-              <div data-slot="source"></div>
-              <div class="tl-subhead">Decoder input so far</div>
-              <div data-slot="target"></div>
-              <div class="tl-subhead">Cross-attention: where the newest position looks in the source</div>
-              <div data-slot="cross"></div>
-            </div>
-            <div class="plot-card tl-pad">
-              <div class="tl-subhead">Next-word probabilities (Linear → Softmax)</div>
-              <div data-slot="probs"></div>
-              <div class="callout" data-slot="callout"></div>
-            </div>
-          </div>
-          <div class="plot-card tl-pad">
-            <div class="tl-subhead">Full cross-attention so far (rows: decoder positions · columns: English words)</div>
-            <div data-slot="matrix"></div>
-            <p class="caption">This alignment pattern emerges from training. Nobody tells the model that “Katzen” means “cats”. The weights here are hand-set to show the kind of pattern trained models learn.</p>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    let t = 1;
-    node.querySelectorAll("[data-gen]").forEach((button) =>
-      button.addEventListener("click", () => {
-        const move = Number(button.getAttribute("data-gen"));
-        t = move === 0 ? 1 : Math.max(1, Math.min(DECODER_INPUT.length, t + move));
-        render();
-      })
-    );
-    const esc = (token) => token.replace("<", "&lt;").replace(">", "&gt;");
-
-    function render() {
-      const position = t - 1;
-      const crossWeights = CROSS_SCORES.slice(0, t).map(softmax);
-      const probs = NEXT_PROBS[position];
-      const pick = probs.indexOf(Math.max(...probs));
-      const written = DECODER_INPUT.slice(0, t).map(esc);
-      const outputs = [...TARGET, "</s>"].slice(0, t).map(esc);
-
-      slot("status").innerHTML = `Step ${t} of ${DECODER_INPUT.length} · translation so far: <strong>${outputs.join(" ")}</strong>`;
-      slot("source").innerHTML = sentenceStrip(SOURCE, -1, null, "");
-      slot("target").innerHTML = sentenceStrip(written, position, null, "");
-      slot("cross").innerHTML = sentenceStrip(SOURCE, -1, crossWeights[position], "", { label: `“${written[position]}” →` });
-      slot("probs").innerHTML = barList(probs, OUT_VOCAB.map(esc), { max: 1, highlight: pick, asPercent: true, color: C().b });
-      slot("matrix").innerHTML = heatmap(crossWeights, {
-        rows: written,
-        cols: SOURCE,
-        focusRow: position,
-        maxAbs: 1,
-        colHint: "English (keys & values from the encoder) →",
-      });
-
-      const looked = crossWeights[position].indexOf(Math.max(...crossWeights[position]));
-      slot("callout").innerHTML =
-        pick === OUT_VOCAB.length - 1
-          ? `The model predicts <strong>&lt;/s&gt;</strong> (end of sentence) with ${pct(probs[pick])}. Generation stops: “${TARGET.join(" ")}”.`
-          : `Looking mostly at “${SOURCE[looked]}” (${pct(crossWeights[position][looked])}), the model picks <strong>${OUT_VOCAB[pick]}</strong> (${pct(probs[pick])}). It is appended to the decoder input and the loop runs again.`;
-
-      node.querySelector('[data-gen="-1"]').disabled = t === 1;
-      node.querySelector('[data-gen="1"]').disabled = t === DECODER_INPUT.length;
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
-  /* ── Step 7: why self-attention won (Table 1) ─────────────────── */
-  function mountWhyLesson(node) {
-    node.innerHTML = lesson(
-      "tf-why-lab",
-      7,
-      "Why it beat RNNs: the paper's Table 1",
-      "Section 4 of the paper argues the case with three numbers. <strong>Path length</strong>: how many steps information takes between two distant words, where fewer steps means long-range links are easier to learn. <strong>Sequential steps</strong>: how much work must wait for earlier work, which decides how well a GPU can parallelise. <strong>Cost per layer</strong>: the total amount of arithmetic. Drag the sentence length and watch the trade-off.",
-      "§4 · Table 1",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label for="why-n">Sentence length n</label>
-              <div class="range-row">
-                <input id="why-n" type="range" min="1" max="12" step="1" value="5" />
-                <span class="range-value" id="why-n-value">32</span>
-              </div>
-            </div>
-            <p class="caption">Width d = 512, as in the paper.</p>
-            <div class="callout" data-slot="callout"></div>
-          </div>
-          <div class="two-column">
-            <div class="plot-card">
-              <svg data-slot="svg" viewBox="0 0 560 260" aria-label="Path from first to last word: RNN chain versus direct attention"></svg>
-            </div>
-            <div class="table-panel">
-              <table>
-                <thead><tr><th>Layer type</th><th>Cost per layer</th><th>Sequential steps</th><th>Max path length</th></tr></thead>
-                <tbody data-slot="table"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      `
-    );
-
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    const nInput = node.querySelector("#why-n");
-    const nValue = node.querySelector("#why-n-value");
-    nInput.addEventListener("input", render);
-    const d = 512;
-    const big = (value) =>
-      value >= 1e9 ? `${fmt(value / 1e9, 1)} B` : value >= 1e6 ? `${fmt(value / 1e6, 1)} M` : value >= 1e3 ? `${fmt(value / 1e3, 1)} K` : String(value);
-
-    function render() {
-      const n = Math.pow(2, Number(nInput.value));
-      nValue.textContent = String(n);
-      const rnnCost = n * d * d;
-      const attCost = n * n * d;
-
-      slot("table").innerHTML = `
-        <tr><td><strong>Self-attention</strong></td><td class="mono">O(n²·d) = ${big(attCost)}</td><td class="mono">O(1) = 1</td><td class="mono">O(1) = 1</td></tr>
-        <tr><td><strong>Recurrent (RNN)</strong></td><td class="mono">O(n·d²) = ${big(rnnCost)}</td><td class="mono">O(n) = ${n}</td><td class="mono">O(n) = ${n}</td></tr>`;
-
-      slot("callout").innerHTML =
-        n < d
-          ? `With n = ${n} < d = ${d}, self-attention is also <strong>cheaper</strong> (${fmt(rnnCost / attCost, 1)}× less arithmetic), and every word reaches every other in <strong>1 step instead of ${n - 1}</strong>. Typical sentences are much shorter than 512 tokens, which is the paper's argument.`
-          : n === d
-            ? `At n = d the costs are equal. Above this, the n² term starts to bite.`
-            : `With n = ${n} > d, self-attention costs <strong>${fmt(attCost / rnnCost, 1)}× more</strong> arithmetic. This quadratic cost in sentence length is the transformer's main weakness, and why so much later research targets “efficient attention”.`;
-
-      drawPaths(slot("svg"), n);
-    }
-
-    render();
-    U().onRedraw(render);
-  }
-
   function drawPaths(svg, n) {
     U().clear(svg);
     const c = C();
@@ -2558,166 +912,895 @@
     });
   }
 
-  /* ── Step 8: the training recipe ──────────────────────────────── */
-  function mountTrainLesson(node) {
-    node.innerHTML = lesson(
-      "tf-train-lab",
-      8,
-      "Training it: the paper's recipe",
-      "The architecture is half the story. The paper also needed a careful training setup. The most distinctive part is the <strong>learning-rate schedule</strong> (Equation 3). The rate rises linearly for the first <em>warmup</em> steps, then decays with the inverse square root of the step. Early on the model is random and Adam's running estimates are poor, so big steps would knock training off course. Warm-up waits until the gradients can be trusted.",
-      "§5 · Eq. 3",
-      `
-        <div class="lab-grid">
-          <div class="controls">
-            <div class="control-group">
-              <label for="lr-warm">Warm-up steps</label>
-              <div class="range-row">
-                <input id="lr-warm" type="range" min="500" max="16000" step="500" value="4000" />
-                <span class="range-value" id="lr-warm-value">4000</span>
-              </div>
-            </div>
-            <div class="control-group">
-              <label for="lr-model">Model width d<sub>model</sub></label>
-              <select id="lr-model">
-                <option value="512">512 (base model)</option>
-                <option value="1024">1024 (big model)</option>
-              </select>
-            </div>
-            <div class="callout" data-slot="callout"></div>
-          </div>
-          <div class="two-column">
-            <div class="plot-card">
-              <svg data-slot="svg" viewBox="0 0 560 260" aria-label="Learning rate over training steps"></svg>
-            </div>
-            <div class="equation-card">
-              <div class="formula-tex">${tex(String.raw`\text{lrate} = d_{\text{model}}^{-0.5}\cdot\min\!\big(\text{step}^{-0.5},\; \text{step}\cdot\text{warmup}^{-1.5}\big)`, true)}</div>
-            </div>
-            <div class="table-panel">
-              <table>
-                <thead><tr><th>Setting</th><th>This page</th><th>Paper: base</th><th>Paper: big</th></tr></thead>
-                <tbody>
-                  <tr><td>Layers N (encoder and decoder)</td><td>1</td><td>6</td><td>6</td></tr>
-                  <tr><td>d<sub>model</sub></td><td>4</td><td>512</td><td>1024</td></tr>
-                  <tr><td>d<sub>ff</sub></td><td>8</td><td>2048</td><td>4096</td></tr>
-                  <tr><td>Heads h</td><td>2</td><td>8</td><td>16</td></tr>
-                  <tr><td>d<sub>k</sub> = d<sub>v</sub></td><td>2</td><td>64</td><td>64</td></tr>
-                  <tr><td>Dropout</td><td>—</td><td>0.1</td><td>0.3</td></tr>
-                  <tr><td>Label smoothing ε</td><td>—</td><td>0.1</td><td>0.1</td></tr>
-                  <tr><td>Training steps</td><td>—</td><td>100K (12 h, 8 GPUs)</td><td>300K (3.5 days)</td></tr>
-                  <tr><td>Parameters</td><td>140 (one encoder layer)</td><td>65 M</td><td>213 M</td></tr>
-                  <tr><td>BLEU, English→German</td><td>—</td><td>27.3</td><td>28.4</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="tl-cards">
-              <article class="soft-box">
-                <h3>Optimizer</h3>
-                <p>Adam with β₁ = 0.9, β₂ = 0.98, ε = 10⁻⁹. β₂ is lower than the usual 0.999, so the running variance estimate adapts faster.</p>
-              </article>
-              <article class="soft-box">
-                <h3>Dropout</h3>
-                <p>Applied to every sub-layer output before the residual add, and to the embeddings + positional encodings. Rate 0.1 for the base model.</p>
-              </article>
-              <article class="soft-box">
-                <h3>Label smoothing (ε = 0.1)</h3>
-                <p>The target is 90% on the correct word and 10% spread over the rest, instead of 100% on one word. It makes the model less over-confident: perplexity gets slightly worse, but BLEU improves.</p>
-              </article>
-              <article class="soft-box">
-                <h3>Teacher forcing</h3>
-                <p>While training, the decoder always gets the <em>true</em> previous words, not its own guesses. With the causal mask, all positions then train in a single parallel pass.</p>
-              </article>
-            </div>
-          </div>
-        </div>
-      `
-    );
+  /* ════════════════════════════════════════════════════════════════
+     GUIDE BUILDING BLOCKS
+     These pages read top to bottom like a book chapter: plain words
+     first, then a figure, then the maths, then one takeaway. Figures
+     are static on purpose; the reader scrolls instead of fiddling.
+     ════════════════════════════════════════════════════════════════ */
 
-    const slot = (name) => node.querySelector(`[data-slot="${name}"]`);
-    const warmInput = node.querySelector("#lr-warm");
-    const warmValue = node.querySelector("#lr-warm-value");
-    const modelInput = node.querySelector("#lr-model");
-    [warmInput, modelInput].forEach((input) => input.addEventListener("input", render));
+  const para = (html) => `<p>${html}</p>`;
+  const plain = (html, label = "In plain words") =>
+    `<aside class="g-plain"><div class="g-label">💬 ${label}</div>${html}</aside>`;
+  const deeper = (title, html) =>
+    `<div class="g-deeper"><div class="g-label">∑ ${title}</div>${html}</div>`;
+  const takeaway = (html) => `<div class="g-takeaway"><div class="g-label">✓ Key takeaway</div><p>${html}</p></div>`;
+  const ref = (text) => `<span class="g-ref">📄 ${text}</span>`;
+  const mathBlock = (latex) => `<div class="g-math">${tex(latex, true)}</div>`;
+  const svgSlot = (name, viewBox, label) =>
+    `<svg data-fig="${name}" viewBox="${viewBox}" role="img" aria-label="${label}"></svg>`;
 
-    function render() {
-      const warmup = Number(warmInput.value);
-      const dModel = Number(modelInput.value);
-      warmValue.textContent = String(warmup);
-      const steps = Array.from({ length: 201 }, (_, i) => 1 + i * 500);
-      const peak = learningRate(warmup, dModel, warmup);
-      const curve = steps.map((s) => ({ x: s / 1000, y: learningRate(s, dModel, warmup) * 1000 }));
-      const svg = slot("svg");
-      const yMax = Math.max(2.5, peak * 1000 * 1.15);
-      const chart = U().makeChart(svg, {
-        xDomain: [0, 100],
-        yDomain: [0, yMax],
-        title: "Learning rate (× 10⁻³) vs. training step (thousands)",
-      });
+  function figure(number, caption, body, wide = false) {
+    return `
+      <figure class="g-fig${wide ? " g-wide" : ""}">
+        <div class="g-fig-body">${body}</div>
+        <figcaption><b>Figure ${number}.</b> ${caption}</figcaption>
+      </figure>`;
+  }
+
+  function chapter(id, number, kicker, title, body) {
+    return `
+      <section class="g-chapter" id="${id}">
+        <div class="g-marker" aria-hidden="true">${number}</div>
+        <header class="g-head">
+          <div class="g-kicker">${kicker}</div>
+          <h2>${title}</h2>
+        </header>
+        ${body}
+      </section>`;
+  }
+
+  function guideToc(items) {
+    return `
+      <nav class="g-toc" aria-label="Chapters">
+        <div class="g-label">In this guide</div>
+        <ol>${items
+          .map((item) => `<li><a href="#${item.id}">${item.title}</a><span>${item.blurb}</span></li>`)
+          .join("")}</ol>
+      </nav>`;
+  }
+
+  function flow(items) {
+    return `<div class="tl-flow g-flow">${items
+      .map((item) => (item === "→" ? '<span class="tl-flow-arrow">→</span>' : `<span class="tl-flow-box">${item}</span>`))
+      .join("")}</div>`;
+  }
+
+  /* A thin bar under the top of the window that fills as you read. */
+  function startProgressBar() {
+    if (document.querySelector(".g-progress")) return;
+    const bar = document.createElement("div");
+    bar.className = "g-progress";
+    bar.innerHTML = "<i></i>";
+    document.body.appendChild(bar);
+    const fill = bar.firstChild;
+    const update = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      fill.style.width = `${max > 0 ? Math.min(100, (window.scrollY / max) * 100) : 0}%`;
+    };
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    update();
+  }
+
+  /* ── New figures ──────────────────────────────────────────────── */
+
+  /* A sentence with one curved arrow from the word that asks to the word
+     it needs. Width follows the sentence, so the viewBox is set here. */
+  function drawArcSentence(svg, tokens, from, to, label) {
+    U().clear(svg);
+    const c = C();
+    const widths = tokens.map((token) => token.length * 9.4 + 22);
+    const gap = 10;
+    const centers = [];
+    let x = 12;
+    widths.forEach((w) => {
+      centers.push(x + w / 2);
+      x += w + gap;
+    });
+    const total = x - gap + 12;
+    svg.setAttribute("viewBox", `0 0 ${total} 128`);
+    svg.style.maxWidth = `${total * 1.35}px`;
+    arrowMarker(svg, `g-arc-${from}-${to}-${tokens.length}`, c.b);
+    tokens.forEach((token, i) => {
+      const hot = i === from ? c.b : i === to ? c.a : null;
       svg.appendChild(
-        U().svgEl("path", { d: U().pathFromPoints(curve, chart.xScale, chart.yScale), fill: "none", stroke: C().a, "stroke-width": 2.6 })
-      );
-      svg.appendChild(
-        U().svgEl("line", {
-          x1: chart.xScale(warmup / 1000), x2: chart.xScale(warmup / 1000),
-          y1: chart.yScale(0), y2: chart.yScale(yMax),
-          stroke: C().b, "stroke-dasharray": "5 5", opacity: 0.6,
+        U().svgEl("rect", {
+          x: centers[i] - widths[i] / 2, y: 78, width: widths[i], height: 34, rx: 8,
+          fill: hot ? rgba(hot, 0.18) : c.plotBg, stroke: hot || c.faint, "stroke-width": hot ? 2 : 1,
         })
       );
-      svg.appendChild(U().svgEl("circle", { cx: chart.xScale(warmup / 1000), cy: chart.yScale(peak * 1000), r: 6, fill: C().b, stroke: C().ring, "stroke-width": 2 }));
-      svgText(svg, chart.xScale(warmup / 1000) + 8, chart.yScale(peak * 1000) - 8, `peak ${(peak * 1000).toFixed(2)}×10⁻³ at step ${warmup}`);
+      svgText(svg, centers[i], 100, token, { "text-anchor": "middle", class: "g-svg-word" });
+    });
+    const a = centers[from];
+    const b = centers[to];
+    const lift = Math.min(56, 22 + Math.abs(a - b) * 0.18);
+    svg.appendChild(
+      U().svgEl("path", {
+        d: `M ${a} 74 Q ${(a + b) / 2} ${74 - lift * 1.6} ${b} 76`,
+        fill: "none", stroke: c.b, "stroke-width": 2.4, "marker-end": `url(#g-arc-${from}-${to}-${tokens.length})`,
+      })
+    );
+    svgText(svg, (a + b) / 2, 74 - lift * 0.9, label, { "text-anchor": "middle", class: "svg-title" });
+  }
 
-      slot("callout").innerHTML = `The rate peaks at step <strong>${warmup}</strong> at <strong>${(peak * 1000).toFixed(2)} × 10⁻³</strong>, then decays. A shorter warm-up gives a higher, sharper peak (more risk of early divergence). A wider model gets a smaller rate overall, because of the d<sub>model</sub><sup>−0.5</sup> factor.`;
+  /* Three small panels: same direction, right angle, opposite. */
+  function drawDotPanels(svg) {
+    U().clear(svg);
+    const c = C();
+    const cases = [
+      { title: "Same direction", angle: 20, value: "large and positive" },
+      { title: "At right angles", angle: 90, value: "zero" },
+      { title: "Opposite", angle: 180, value: "negative" },
+    ];
+    cases.forEach((entry, i) => {
+      const ox = 40 + i * 200;
+      const oy = 120;
+      const id = `g-dot-${i}`;
+      arrowMarker(svg, `${id}-a`, c.c);
+      arrowMarker(svg, `${id}-b`, c.b);
+      svgText(svg, ox + 60, 24, entry.title, { "text-anchor": "middle", class: "svg-title" });
+      svg.appendChild(U().svgEl("line", { x1: ox + 40, y1: oy, x2: ox + 120, y2: oy, stroke: c.c, "stroke-width": 3, "marker-end": `url(#${id}-a)` }));
+      const rad = (entry.angle * Math.PI) / 180;
+      svg.appendChild(
+        U().svgEl("line", {
+          x1: ox + 40, y1: oy, x2: ox + 40 + 76 * Math.cos(rad), y2: oy - 76 * Math.sin(rad),
+          stroke: c.b, "stroke-width": 3, "marker-end": `url(#${id}-b)`,
+        })
+      );
+      svg.appendChild(U().svgEl("circle", { cx: ox + 40, cy: oy, r: 3.5, fill: c.ink }));
+      svgText(svg, ox + 60, 160, `a · b is ${entry.value}`, { "text-anchor": "middle" });
+    });
+  }
+
+  function drawPeHeatmap(svg, pos, D, P) {
+    U().clear(svg);
+    const pad = { left: 44, top: 26, right: 12, bottom: 24 };
+    const cellW = (560 - pad.left - pad.right) / D;
+    const cellH = (300 - pad.top - pad.bottom) / P;
+    svgText(svg, pad.left, 16, `${P} positions (rows) × ${D} dimensions (columns)`, { class: "svg-title" });
+    for (let p = 0; p < P; p += 1) {
+      positionalEncoding(p, D).forEach((value, d) => {
+        svg.appendChild(
+          U().svgEl("rect", {
+            x: pad.left + d * cellW, y: pad.top + p * cellH, width: cellW + 0.4, height: cellH + 0.4,
+            fill: rgba(value >= 0 ? C().a : C().b, Math.abs(value) * 0.9),
+          })
+        );
+      });
     }
+    svg.appendChild(
+      U().svgEl("rect", {
+        x: pad.left - 2, y: pad.top + pos * cellH - 1, width: D * cellW + 4, height: cellH + 2,
+        fill: "none", stroke: C().ink, "stroke-width": 2,
+      })
+    );
+    svgText(svg, pad.left - 6, pad.top + pos * cellH + cellH, `pos ${pos}`, { "text-anchor": "end" });
+    svgText(svg, pad.left, 300 - 8, "← fast-turning dimensions");
+    svgText(svg, 560 - pad.right, 300 - 8, "slow-turning dimensions →", { "text-anchor": "end" });
+  }
+
+  function drawPeSimilarity(svg, pos, D, P) {
+    const codes = Array.from({ length: P }, (_, p) => positionalEncoding(p, D));
+    const sims = codes.map((code) => math.dotV(codes[pos], code));
+    const chart = U().makeChart(svg, {
+      xDomain: [0, P - 1],
+      yDomain: [Math.floor(Math.min(...sims)) - 1, D / 2 + 1],
+      title: `How similar position ${pos}'s code is to every other position (dot product)`,
+    });
+    svg.appendChild(
+      U().svgEl("path", {
+        d: U().pathFromPoints(sims.map((value, p) => ({ x: p, y: value })), chart.xScale, chart.yScale),
+        fill: "none", stroke: C().a, "stroke-width": 2.5,
+      })
+    );
+    svg.appendChild(U().svgEl("circle", { cx: chart.xScale(pos), cy: chart.yScale(sims[pos]), r: 6, fill: C().b, stroke: C().ring, "stroke-width": 2 }));
+  }
+
+  function peClocks(pos, D) {
+    const omega = (pair) => 1 / Math.pow(10000, (2 * pair) / D);
+    return `<div class="tl-dials">${[0, 1, 3, 7]
+      .map((pair) => {
+        const angle = pos * omega(pair);
+        const period = (2 * Math.PI) / omega(pair);
+        const x = 40 + 30 * Math.sin(angle);
+        const y = 40 - 30 * Math.cos(angle);
+        return `
+          <div class="tl-dial">
+            <svg viewBox="0 0 80 80" aria-hidden="true">
+              <circle cx="40" cy="40" r="34" fill="none" stroke="${C().faint}" stroke-width="2" />
+              <line x1="40" y1="40" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${C().b}" stroke-width="3.5" stroke-linecap="round" />
+              <circle cx="40" cy="40" r="3.5" fill="${C().ink}" />
+            </svg>
+            <div><b>dimensions ${2 * pair} and ${2 * pair + 1}</b><br /><span class="caption">one full turn every ${period < 100 ? fmt(period, 1) : Math.round(period)} positions</span></div>
+          </div>`;
+      })
+      .join("")}</div>`;
+  }
+
+  function drawLrSchedule(svg) {
+    const warmup = 4000;
+    const curve = Array.from({ length: 201 }, (_, i) => 1 + i * 500).map((s) => ({ x: s / 1000, y: learningRate(s, 512, warmup) * 1000 }));
+    const peak = learningRate(warmup, 512, warmup) * 1000;
+    const chart = U().makeChart(svg, { xDomain: [0, 100], yDomain: [0, 1], title: "Learning rate (× 10⁻³) over 100,000 training steps (thousands)" });
+    svg.appendChild(U().svgEl("path", { d: U().pathFromPoints(curve, chart.xScale, chart.yScale), fill: "none", stroke: C().a, "stroke-width": 2.6 }));
+    svg.appendChild(U().svgEl("circle", { cx: chart.xScale(4), cy: chart.yScale(peak), r: 6, fill: C().b, stroke: C().ring, "stroke-width": 2 }));
+    svgText(svg, chart.xScale(4) + 10, chart.yScale(peak) - 6, `peak ${peak.toFixed(2)} × 10⁻³ at step 4,000: warm-up ends, decay begins`);
+  }
+
+  /* Numbered badges on top of Figure 1, each linking to its chapter. */
+  const MAP_BADGES = [
+    { n: 2, x: 290, y: 583, id: "tf-embedding" },
+    { n: 3, x: 222, y: 531, id: "tf-positions" },
+    { n: 4, x: 290, y: 465, id: "tf-encoder" },
+    { n: 5, x: 52, y: 300, id: "tf-stack" },
+    { n: 6, x: 620, y: 465, id: "tf-masking" },
+    { n: 7, x: 620, y: 357, id: "tf-cross" },
+    { n: 8, x: 620, y: 128, id: "tf-generate" },
+  ];
+
+  function drawGuideMap(svg) {
+    drawArchitecture(svg, null);
+    MAP_BADGES.forEach((badge) => {
+      const group = U().svgEl("g", { class: "g-badge", "data-goto": badge.id, tabindex: 0, role: "link", "aria-label": `Chapter ${badge.n}` });
+      group.appendChild(U().svgEl("circle", { cx: badge.x, cy: badge.y, r: 13, fill: C().ink }));
+      const t = U().svgEl("text", { x: badge.x, y: badge.y + 4.5, "text-anchor": "middle", class: "g-badge-num" });
+      t.textContent = String(badge.n);
+      group.appendChild(t);
+      svg.appendChild(group);
+    });
+  }
+
+  /* Draw every [data-fig] SVG in a guide; `drawers` maps names to functions. */
+  function drawFigures(rootNode, drawers) {
+    rootNode.querySelectorAll("[data-fig]").forEach((svg) => {
+      const draw = drawers[svg.getAttribute("data-fig")];
+      if (draw) draw(svg);
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     ATTENTION GUIDE
+     ════════════════════════════════════════════════════════════════ */
+
+  function mountAttentionGuide(rootNode) {
+    const sentence = SENTENCES[0];
+    const tokens = math.tokensOf(sentence);
+    const X = math.embed(tokens);
+    const IT = 4;
+    const head = HEADS[0];
+    const h1 = attentionHead(X, head);
+    const mh = multiHead(X);
+    const raw = rawAttention(X, IT, 1);
+    const n = tokens.length;
+
+    const ctxSentence = CONTEXT_SENTENCES[0];
+    const ctxTokens = math.tokensOf(ctxSentence);
+    const ctxX = ctxTokens.map((token) => CONTEXT_VOCAB[token]);
+    const ctxFocus = ctxTokens.indexOf("bank");
+    const ctx = rawAttention(ctxX, ctxFocus, 3);
+
+    const dotWords = ["cat", "dog", "ball", "it", "sat"];
+    const dotMatrix = dotWords.map((a) => dotWords.map((b) => math.dotV(VOCAB[a], VOCAB[b])));
+
+    const softScores = [2.0, 1.0, 0.5, -1.0];
+    const softLabels = ["cat", "tired", "sat", "the"];
+
+    function scaleSample(dk) {
+      const rng = seeded(7919 + dk);
+      const vec = () => Array.from({ length: dk }, () => gaussian(rng));
+      const q = vec();
+      const raws = Array.from({ length: 8 }, vec).map((k) => math.dotV(q, k));
+      return { raw: softmax(raws), scaled: softmax(raws.map((value) => value / Math.sqrt(dk))) };
+    }
+
+    const order = [orderDemo(["dog", "bites", "man"], false), orderDemo(["man", "bites", "dog"], false)];
+
+    const chapters = [
+      { id: "att-why", title: "Why a word needs its neighbours", blurb: "the problem attention solves" },
+      { id: "att-numbers", title: "How a computer stores a word", blurb: "embeddings" },
+      { id: "att-dot", title: "Measuring relatedness", blurb: "the dot product" },
+      { id: "att-softmax", title: "Turning scores into shares", blurb: "softmax" },
+      { id: "att-first", title: "A first attempt, and why it fails", blurb: "blend in similar words" },
+      { id: "att-qkv", title: "Query, key and value", blurb: "the real idea" },
+      { id: "att-one", title: "One word, number by number", blurb: "a full worked example" },
+      { id: "att-matrix", title: "Every word at once", blurb: "Equation 1 of the paper" },
+      { id: "att-scale", title: "Why divide by √dₖ", blurb: "keeping softmax healthy" },
+      { id: "att-heads", title: "Many questions at once", blurb: "multi-head attention" },
+      { id: "att-limits", title: "What attention can't do alone", blurb: "what the Transformer adds" },
+      { id: "att-recap", title: "Recap and self-check", blurb: "cheat sheet and quiz" },
+    ];
+
+    let pickFocus = IT;
+
+    function body() {
+      const qIt = h1.Q[IT];
+      const best = 1;
+      return `
+        <div class="g-intro">
+          ${para("This guide explains <strong>attention</strong>, the idea at the heart of the Transformer and of every modern language model, starting from nothing more than a weighted sum. Each chapter starts in plain words, then shows a picture, then the maths. You can stop after the plain-words parts and still understand the idea, or read everything and be ready for the original paper.")}
+          ${para("One sentence runs through the whole guide: <strong>“the cat sat because it was tired”</strong>. By the end you will see, with real numbers, how the word “it” works out that it means the cat.")}
+          ${guideToc(chapters)}
+        </div>
+
+        ${chapter("att-why", 1, "The problem", "Why a word needs its neighbours", `
+          ${plain(para("Read the word <strong>“bank”</strong> on its own. Is it a riverbank or a place that keeps money? You can't tell. Now read “I sat by the river <strong>bank</strong>”: instantly you know. The meaning came from a <em>neighbour</em>, “river”.") + para("Words like <strong>“it”</strong> are even more extreme: alone, “it” means nothing at all. In “the cat sat because <strong>it</strong> was tired”, “it” only gets its meaning by pointing back to “cat”."))}
+          ${figure("1.1", "To understand “it”, a reader looks back at “cat”. Attention is a way for a neural network to draw this arrow by itself.", svgSlot("arc-it", "0 0 600 128", "it points back to cat"))}
+          ${para("A plain neural network, the kind on the earlier pages, takes each input on its own. Feed it the word “it” and it has no way to look at the rest of the sentence. We need a mechanism that lets every word <strong>look at the other words and pull in what it needs</strong>. That mechanism is attention.")}
+          ${takeaway("Meaning depends on context. Attention lets each word gather information from the other words in its sentence.")}
+        `)}
+
+        ${chapter("att-numbers", 2, "Background", "How a computer stores a word", `
+          ${plain(para("A network can only do arithmetic, so each word becomes a short list of numbers, called a <strong>vector</strong> or <strong>embedding</strong>. Think of it as a profile card: how much is this word a thing? Is it alive? Is it an action?"))}
+          ${figure("2.1", "The toy vocabulary used throughout this guide. Each word has 4 numbers, and each number has a readable meaning. In a real model the numbers are learned, there are 512 or more of them, and they have no names, but the principle is the same.",
+            heatmap(["cat", "dog", "ball", "sat", "it", "tired", "the"].map((w) => VOCAB[w]), { rows: ["cat", "dog", "ball", "sat", "it", "tired", "the"], cols: FEATURES, maxAbs: 1 }))}
+          ${para("Notice two things already. <strong>“cat” and “dog” have identical cards</strong>, so the model treats them as the same kind of word. And <strong>“it” has alive = 0</strong>. On its own, “it” does not know it refers to something alive. Keep an eye on that zero; attention will fill it in.")}
+          ${deeper("The math: an embedding is a lookup, which is a matrix multiply", `
+            ${para("Number the vocabulary, write a word as a <em>one-hot</em> vector (all zeros except a 1 at its position), and multiply by the embedding matrix E. The 1 selects exactly one row: that word's vector. So an embedding layer is just a dense layer with no bias, applied to a one-hot input. It is trained by backpropagation like any other layer.")}
+            ${mathBlock(String.raw`\underbrace{[0\;1\;0\;0\;0]}_{\text{one-hot “cat”}}\;\times\; E_{\,5\times 4} \;=\; \text{row 2 of } E \;=\; [1,\,1,\,0,\,0]`)}
+          `)}
+          ${takeaway("Every word becomes a vector of numbers. Similar words get similar vectors.")}
+        `)}
+
+        ${chapter("att-dot", 3, "Background", "Measuring relatedness: the dot product", `
+          ${plain(para("To decide which words matter to each other, we need a number that says “how related are these two vectors?”. The simplest one is the <strong>dot product</strong>: multiply the two lists position by position and add up the results. If two vectors point the same way, the result is large. If they have nothing in common, it is zero."))}
+          ${figure("3.1", "The dot product compares directions. Vectors pointing the same way give a big positive number, unrelated (perpendicular) vectors give zero, opposite vectors give a negative number.", svgSlot("dot-panels", "0 0 600 175", "Dot product of vectors in three directions"))}
+          ${figure("3.2", "Dot products between toy words. “cat · dog” = 2 (closely related). “cat · sat” = 0 (nothing in common). Note “it · cat” is only 0.3: by this measure, “it” and “cat” look almost unrelated. That will be a problem in Chapter 5.",
+            heatmap(dotMatrix, { rows: dotWords, cols: dotWords, maxAbs: 2 }))}
+          ${deeper("The math", `
+            ${mathBlock(String.raw`a \cdot b = \sum_i a_i b_i = |a|\,|b|\cos\theta`)}
+            ${para("Example: cat · dog = 1·1 + 1·1 + 0·0 + 0·0 = 2. A single neuron computes exactly this: a dot product between its weights and its input. Attention will use dot products between <em>two inputs</em> instead.")}
+          `)}
+          ${takeaway("The dot product turns “how related are these two words?” into a single number.")}
+        `)}
+
+        ${chapter("att-softmax", 4, "Background", "Turning scores into shares: softmax", `
+          ${plain(para("Suppose “it” has given every word a relevance score. We want to turn those scores into <strong>shares that add up to 100%</strong>: how much of its attention “it” gives to each word. <strong>Softmax</strong> does exactly that. Bigger scores get bigger shares, every share is positive, and they always add up to 100%."))}
+          ${figure("4.1", "Raw scores on the left (any numbers, even negative) become shares on the right. The ordering is kept, and the biggest score gets most of the share.",
+            `<div class="g-two">
+              <div>${heatmap([softScores], { rows: ["score"], cols: softLabels, maxAbs: 2 })}</div>
+              <div><div class="tl-subhead">After softmax</div>${barList(softmax(softScores), softLabels, { max: 1, asPercent: true, highlight: 0 })}</div>
+            </div>`)}
+          ${figure("4.2", "Multiplying all scores by a constant changes how “decisive” softmax is. Divided by 3: shares even out. Multiplied by 3: the top word takes almost everything. Chapter 9 shows why this matters.",
+            `<div class="g-three">${[
+              ["scores ÷ 3 (soft)", 1 / 3],
+              ["scores × 1", 1],
+              ["scores × 3 (sharp)", 3],
+            ]
+              .map(([title, k]) => `<div><div class="tl-subhead">${title}</div>${barList(softmax(softScores.map((v) => v * k)), softLabels, { max: 1, asPercent: true })}</div>`)
+              .join("")}</div>`)}
+          ${deeper("The math", `
+            ${mathBlock(String.raw`\operatorname{softmax}(z)_j = \frac{e^{z_j}}{\sum_k e^{z_k}}`)}
+            ${para(`Here: e² = 7.39, e¹ = 2.72, e⁰·⁵ = 1.65, e⁻¹ = 0.37; total 12.13; so “cat” gets 7.39 / 12.13 = ${pct(softmax(softScores)[0])}. The exponential makes every value positive; dividing by the total makes them add up to 1.`)}
+          `)}
+          ${takeaway("Softmax turns any list of scores into positive shares that add up to 1.")}
+        `)}
+
+        ${chapter("att-first", 5, "First attempt", "Blend in similar words, and why it isn't enough", `
+          ${plain(para("With dot products and softmax we can build a first version of attention: for each word, score every word by similarity, turn the scores into shares, and build a <strong>new vector</strong> for the word as the share-weighted average of all the words. “bank” in “the river bank was muddy” should drift toward “river”."))}
+          ${figure("5.1", `Words as 2-number vectors (money-ness, nature-ness). “bank” starts in the middle. After blending in its neighbours it moves toward nature (orange arrow): it now means a riverbank. Line thickness shows each word's share.`,
+            `<div class="g-two g-two-wide">
+              <div>${svgSlot("ctx-plot", "0 0 560 360", "bank moves toward river")}</div>
+              <div><div class="tl-subhead">Shares for “bank”</div>${barList(ctx.weights, ctxTokens, { max: 1, asPercent: true, highlight: ctxFocus })}</div>
+            </div>`, true)}
+          ${para("It works for “bank”. But try the same recipe on <strong>“it”</strong>:")}
+          ${figure("5.2", "Plain similarity for “it”: it gives its largest share to itself, and only a small share to “cat”, the word it actually needs.",
+            sentenceStrip(tokens, IT, raw.weights, "", { label: "Where “it” looks, using plain similarity" }))}
+          ${para("Two problems show up:")}
+          <ol class="g-list">
+            <li><strong>Every word is most similar to itself</strong>, so it mostly looks at itself.</li>
+            <li><strong>Relevant is not the same as similar.</strong> “it” needs “cat” because a pronoun needs a noun, not because the two words look alike. We need a way to score <em>what a word is looking for</em> against <em>what another word offers</em>.</li>
+          </ol>
+          ${takeaway("Averaging over similar words adds context, but similarity is the wrong test. We need a learned notion of relevance.")}
+        `)}
+
+        ${chapter("att-qkv", 6, "The key idea", "Query, key and value", `
+          ${plain(para("Give every word <strong>three</strong> different vectors, each made from the word by its own learned matrix:") + `
+            <ul class="g-list">
+              <li><strong>Query</strong>: what am I looking for? (“it”: <em>I'm looking for a living thing</em>.)</li>
+              <li><strong>Key</strong>: what do I offer, so others can find me? (“cat”: <em>I'm a living thing</em>.)</li>
+              <li><strong>Value</strong>: what do I hand over if someone picks me? (“cat”: <em>thing, alive</em>.)</li>
+            </ul>` + para("A word's score for another word is now <em>its query · the other's key</em>. Like searching a library: you type a query, it is matched against the labels (keys) on the spines, and you take home the contents (values). The difference: you take a little of <em>every</em> book, in proportion to how well its label matched."))}
+          ${figure("6.1", "One word, three roles. The same vector for “it” is multiplied by three different weight matrices (learned during training) to produce its query, key and value.",
+            `<div class="g-qkv">
+              <div class="tl-flow-box"><span>“it”</span><small>x = (${X[IT].map((v) => fmt(v, 1)).join(", ")})</small></div>
+              <div class="g-qkv-arrows">
+                <div><span class="g-pill">× W<sup>Q</sup></span> → <b>query</b> (${h1.Q[IT].map((v) => fmt(v)).join(", ")}) <em>“I want a living thing”</em></div>
+                <div><span class="g-pill">× W<sup>K</sup></span> → <b>key</b> (${h1.K[IT].map((v) => fmt(v)).join(", ")}) <em>“I offer very little”</em></div>
+                <div><span class="g-pill">× W<sup>V</sup></span> → <b>value</b> (${h1.V[IT].map((v) => fmt(v)).join(", ")}) <em>“thing 0.3, alive 0”</em></div>
+              </div>
+            </div>`)}
+          ${figure("6.2", "The query of “it” (arrow) and the key of every word (dots), in the 2-number space where they meet. “cat”'s key lies far along the query's direction, so it gets the highest score. Keys at the origin (sat, because, was) offer nothing to this question.",
+            svgSlot("qk-plot", "0 0 420 340", "query of it and all keys"))}
+          ${figure("6.3", "Try it: click any word to see where it looks. Top row: plain similarity (Chapter 5). Bottom row: query · key.", `<div data-widget="pick"></div>`)}
+          ${deeper("The math", `
+            ${mathBlock(String.raw`q_i = x_i W^Q,\qquad k_j = x_j W^K,\qquad v_j = x_j W^V,\qquad \text{score}(i,j) = q_i \cdot k_j`)}
+            ${para("W<sup>Q</sup>, W<sup>K</sup> and W<sup>V</sup> are ordinary dense layers with no bias and no activation, shared by every word. Here they are 4 × 2 (d<sub>model</sub> = 4 → d<sub>k</sub> = 2); in the paper, 512 × 64.")}
+          `)}
+          ${takeaway("Queries ask, keys answer, values are delivered. Because they are separate, “relevant” no longer has to mean “similar”.")}
+        `)}
+
+        ${chapter("att-one", 7, "Worked example", "Following “it”, number by number", `
+          ${para("Here is the full computation for one word, with the actual numbers from our toy model. Every later formula is just this, done for all words at once.")}
+          <ol class="g-steps">
+            <li><b>Make the query.</b> q<sub>it</sub> = x<sub>it</sub> W<sup>Q</sup> = (${qIt.map((v) => fmt(v)).join(", ")}).</li>
+            <li><b>Score every word</b> with q · k, then <b>divide by √d<sub>k</sub> = √2</b> (Chapter 9 explains why).</li>
+            <li><b>Softmax</b> the scaled scores into shares.</li>
+          </ol>
+          ${figure("7.1", "Steps 2 and 3 for every word. “cat” scores 5.38; after scaling and softmax it receives 85% of the attention.",
+            `<div class="table-panel"><table>
+              <thead><tr><th>Word</th><th>Key k</th><th>q · k</th><th>÷ √2</th><th>Share</th></tr></thead>
+              <tbody>${tokens
+                .map((token, j) => `<tr${j === best ? ' class="g-hot"' : ""}><td>${token}</td><td class="mono">(${h1.K[j].map((v) => fmt(v)).join(", ")})</td><td class="mono">${fmt(h1.S[IT][j])}</td><td class="mono">${fmt(h1.scaled[IT][j])}</td><td>${barList([h1.A[IT][j]], [""], { max: 1, asPercent: true })}</td></tr>`)
+                .join("")}</tbody>
+            </table></div>`)}
+          <ol class="g-steps" start="4">
+            <li><b>Blend the values.</b> The output for “it” is the share-weighted sum of every word's value: 85% of cat's value, plus small amounts of the rest.</li>
+          </ol>
+          ${figure("7.2", "Before and after. “it” started with alive = 0. After attention it carries alive = 0.86, borrowed from “cat”. This is context entering a word.",
+            featureCompare(head.vLabels, [
+              { name: "“it” before (its own value)", values: X[IT].slice(0, 2), color: C().c },
+              { name: "“it” after attention", values: h1.O[IT], color: C().b },
+            ]))}
+          ${mathBlock(String.raw`\text{out}_{\text{it}} = \sum_j a_{\text{it},j}\, v_j = ${fmt(h1.A[IT][1])}\cdot v_{\text{cat}} + \dots = (${h1.O[IT].map((v) => fmt(v)).join(",\\;")})`)}
+          ${takeaway("Attention for one word: query, scores against every key, softmax, weighted sum of values.")}
+        `)}
+
+        ${chapter("att-matrix", 8, "Scaling up", "Every word at once: the matrix form", `
+          ${plain(para("Every word asks its question at the same time. Stack the words as rows of a matrix and the whole computation becomes a few matrix multiplications. There is <strong>no loop over the words</strong>, so a GPU can do all of them in parallel. This is a big reason Transformers train so much faster than older models (RNNs) that read one word at a time."))}
+          <div class="g-film">
+            ${[
+              ["1. Stack the words", "One row per word.", heatmap(X, { rows: tokens, cols: FEATURES, focusRow: IT, title: "X", shape: `${n} × 4` })],
+              ["2. Make Q, K, V", "Three multiplications. Each row is one word's query, key, value.",
+                `<div class="tl-mats-row">${heatmap(h1.Q, { rows: tokens, cols: ["q₁", "q₂"], focusRow: IT, title: "Q", shape: `${n} × 2` })}${heatmap(h1.K, { rows: tokens, cols: ["k₁", "k₂"], focusRow: IT, title: "K", shape: `${n} × 2` })}${heatmap(h1.V, { rows: tokens, cols: head.vLabels, focusRow: IT, title: "V", shape: `${n} × 2` })}</div>`],
+              ["3. Score every pair: QKᵀ", "Row i, column j: how well word i's query matches word j's key.", heatmap(h1.S, { rows: tokens, cols: tokens, focusRow: IT, title: "QKᵀ", shape: `${n} × ${n}`, colHint: "keys →" })],
+              ["4. Scale and softmax each row", "Divide by √dₖ, then turn each row into shares that add up to 1. This is the famous attention map.", heatmap(h1.A, { rows: tokens, cols: tokens, focusRow: IT, maxAbs: 1, title: "A = softmax(QKᵀ / √dₖ)", shape: `${n} × ${n}`, colHint: "keys →" })],
+              ["5. Blend the values: AV", "Each output row is that word's share-weighted mix of all values.", heatmap(h1.O, { rows: tokens, cols: head.vLabels, focusRow: IT, title: "Output = AV", shape: `${n} × 2` })],
+            ]
+              .map(([title, text, html]) => `<div class="g-film-frame"><div class="g-film-text"><h4>${title}</h4><p>${text}</p></div><div class="g-film-fig">${html}</div></div>`)
+              .join('<div class="g-film-arrow" aria-hidden="true">↓</div>')}
+          </div>
+          <p class="caption">The highlighted row is “it” in every frame: the same numbers as Chapter 7.</p>
+          ${deeper("The math: Equation 1 of the paper", `
+            ${mathBlock(String.raw`\operatorname{Attention}(Q,K,V) = \operatorname{softmax}\!\Big(\frac{QK^{\top}}{\sqrt{d_k}}\Big)V`)}
+            <ul class="g-list g-legend">
+              <li><b>QKᵀ</b>: compare every query with every key.</li>
+              <li><b>÷ √dₖ</b>: keep the scores at a sensible size.</li>
+              <li><b>softmax</b>: turn each row into shares.</li>
+              <li><b>× V</b>: deliver the blended values.</li>
+            </ul>
+            ${ref("Vaswani et al. 2017, §3.2.1")}
+          `)}
+          ${takeaway("Attention for a whole sentence is one formula: softmax(QKᵀ/√dₖ)V, computed for all words in parallel.")}
+        `)}
+
+        ${chapter("att-scale", 9, "A detail that matters", "Why divide by √dₖ?", `
+          ${plain(para("A dot product adds up many small products. With 64 numbers per vector (the paper's d<sub>k</sub>), the total swings much more widely than with 2. Big scores make softmax <strong>winner-take-all</strong>: one word gets ~100%, the rest ~0%. A softmax stuck like that barely changes when its inputs change, so the network can't learn which words to attend to. Dividing by √d<sub>k</sub> brings the scores back to a normal size."))}
+          ${figure("9.1", "Softmax over 8 random keys. Orange: raw scores. Teal: scores divided by √dₖ. With small dₖ (left) the two barely differ. With dₖ = 512 (right), the unscaled version puts nearly everything on one key, while the scaled one stays spread out and learnable.",
+            `<div class="g-two">
+              <div><div class="tl-subhead">dₖ = 4</div>${svgSlot("scale-4", "0 0 560 250", "softmax with d_k 4")}</div>
+              <div><div class="tl-subhead">dₖ = 512</div>${svgSlot("scale-512", "0 0 560 250", "softmax with d_k 512")}</div>
+            </div>
+            <div class="legend"><span><i data-swatch="b"></i> without scaling</span><span><i data-swatch="a"></i> with ÷ √dₖ</span></div>`, true)}
+          ${deeper("The math: where √dₖ comes from (paper footnote 4)", `
+            ${para("If the entries of q and k are independent with mean 0 and variance 1 (roughly true at the start of training), each product q<sub>i</sub>k<sub>i</sub> has variance 1, and a sum of d<sub>k</sub> of them has variance d<sub>k</sub>:")}
+            ${mathBlock(String.raw`\operatorname{Var}(q\cdot k) = \sum_{i=1}^{d_k}\operatorname{Var}(q_i k_i) = d_k \quad\Rightarrow\quad \operatorname{Var}\!\Big(\frac{q\cdot k}{\sqrt{d_k}}\Big) = 1`)}
+            ${para("This is the same problem as a saturated sigmoid on the Activation Functions page: a flat function has a near-zero gradient and stops learning.")}
+          `)}
+          ${takeaway("Dividing by √dₖ keeps the scores at unit size, so softmax stays soft enough to learn from.")}
+        `)}
+
+        ${chapter("att-heads", 10, "More power", "Many questions at once: multi-head attention", `
+          ${plain(para("One attention pattern answers one kind of question. Language has many: <em>who does “it” refer to? What did the cat do? Which adjective goes with which noun?</em> So the Transformer runs several smaller attentions side by side, called <strong>heads</strong>, each with its own W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup>. It then joins their outputs and mixes them with one more matrix, W<sup>O</sup>."))}
+          ${figure("10.1", "Our two heads look at the same sentence and ask different questions. Head 1 (“who is involved?”) sends “it” to “cat”. Head 2 (“what happened?”) sends nouns and “it” toward the action words.",
+            `<div class="g-two">${HEADS.map((entry, h) => `<div><div class="tl-subhead">${entry.name}</div>${heatmap(mh.heads[h].A, { rows: tokens, cols: tokens, focusRow: IT, maxAbs: 1, colHint: "keys →" })}</div>`).join("")}</div>`, true)}
+          ${figure("10.2", "Shapes. Each head works in a smaller space; joining the heads restores the original width, so the output can be added back to the input (next guide).",
+            flow([`X<small>${n} × 4</small>`, "→", `<span>head 1</span><small>${n} × 2</small>`, `<span>head 2</span><small>${n} × 2</small>`, "→", `<span>concat</span><small>${n} × 4</small>`, "→", `<span>× W<sup>O</sup></span><small>${n} × 4</small>`]))}
+          ${figure("10.3", "What multi-head attention brings back to “it”: head 1 fills in thing and alive, and head 2 fills in action/state. (W<sup>O</sup> is the identity here so the feature names survive.)",
+            featureCompare(FEATURES, [
+              { name: "“it” itself", values: X[IT], color: C().c },
+              { name: "multi-head output for “it”", values: mh.out[IT], color: C().b },
+            ]))}
+          ${deeper("The math", `
+            ${mathBlock(String.raw`\operatorname{MultiHead}(X) = \operatorname{Concat}(\text{head}_1,\ldots,\text{head}_h)\,W^O,\qquad \text{head}_i = \operatorname{Attention}(XW_i^Q,\,XW_i^K,\,XW_i^V)`)}
+            ${para("The paper uses h = 8 heads with d<sub>k</sub> = 512 / 8 = 64. Eight 64-wide heads cost about the same as one 512-wide head, so you get eight different attention patterns for the price of one.")}
+            ${ref("Vaswani et al. 2017, §3.2.2")}
+          `)}
+          ${takeaway("Several heads ask different questions in parallel; their answers are joined and mixed.")}
+        `)}
+
+        ${chapter("att-limits", 11, "Looking ahead", "What attention can't do alone", `
+          ${para("Attention is powerful, but on its own it has three gaps. The Transformer is attention plus the parts that fill them.")}
+          <div class="g-cards">
+            <div class="soft-box"><h4>1. It ignores word order</h4><p>Scores depend only on <em>which</em> words are present, not <em>where</em>. Below, “dog bites man” and “man bites dog” give “dog” exactly the same output. Fix: <a href="./algorithm.html?id=transformer#tf-positions">positional encoding</a>.</p>
+              <table class="g-mini"><tr><th></th><th>output for “dog”</th></tr><tr><td>dog bites man</td><td class="mono">(${order[0].O[0].map((v) => fmt(v)).join(", ")})</td></tr><tr><td>man bites dog</td><td class="mono">(${order[1].O[2].map((v) => fmt(v)).join(", ")})</td></tr></table></div>
+            <div class="soft-box"><h4>2. It only mixes</h4><p>Attention moves information <em>between</em> words, but does no real processing of each word afterwards. Fix: a small <a href="./algorithm.html?id=transformer#tf-encoder">feed-forward network</a> after every attention layer (the ANN you already know).</p></div>
+            <div class="soft-box"><h4>3. It costs n² scores</h4><p>Every word scores every word: ${n} words → ${n * n} scores; 1,000 words → 1,000,000. Fine for sentences, expensive for books. This is the main cost of the Transformer, discussed in the <a href="./algorithm.html?id=transformer#tf-why">last chapter</a> of the next guide.</p></div>
+          </div>
+          ${takeaway("Attention needs help with word order, per-word processing and depth. That is what the Transformer adds.")}
+        `)}
+
+        ${chapter("att-recap", 12, "Recap", "Recap and self-check", `
+          <ol class="g-recap">
+            <li>A word's meaning depends on its neighbours.</li>
+            <li>Words are vectors; dot products measure relatedness; softmax turns scores into shares.</li>
+            <li>Each word makes a <b>query</b>, a <b>key</b> and a <b>value</b> with learned matrices.</li>
+            <li>Shares = softmax(query · keys / √dₖ); output = shares × values.</li>
+            <li>For a whole sentence: <b>softmax(QKᵀ/√dₖ)V</b>, all words in parallel.</li>
+            <li>Several heads ask different questions; their outputs are joined.</li>
+          </ol>
+          ${quiz([
+            { q: "Why not just use the word vectors themselves as queries and keys?", a: "Every word would score highest with itself, and relevance would require similarity. “it” needs “cat” although the two are not alike (Chapter 5). Separate W<sup>Q</sup> and W<sup>K</sup> let “what I look for” differ from “what I offer”." },
+            { q: "A word's query is all zeros. Where does it look?", a: "Every score is 0, so softmax gives every word the same share (1/n): the output is a plain average. In head 1, “cat” has a zero query; check its row in Figure 10.1." },
+            { q: "What goes wrong without the √dₖ?", a: "With large dₖ the scores grow like √dₖ, softmax becomes winner-take-all and its gradient vanishes, so learning stalls (Chapter 9)." },
+            { q: "Why are 8 heads of size 64 about as costly as 1 head of size 512?", a: "The projection matrices have the same total size: 8 × (512 × 64) = 512 × 512." },
+            { q: "Shuffle the words of a sentence. What happens to each word's attention output?", a: "Nothing, apart from moving with its word. Attention has no notion of position, which is why the Transformer adds positional encodings." },
+          ])}
+          <div class="tl-next">
+            <div><div class="eyebrow">Next guide</div><strong>The Transformer, box by box</strong><p class="caption">Word order, the encoder block, the decoder, training, and why it replaced RNNs.</p></div>
+            <a class="button primary" href="./algorithm.html?id=transformer">Continue to the Transformer →</a>
+          </div>
+        `)}
+      `;
+    }
+
+    function renderPick() {
+      const host = rootNode.querySelector('[data-widget="pick"]');
+      if (!host) return;
+      const rawPick = rawAttention(X, pickFocus, 1);
+      host.innerHTML = `
+        ${sentenceStrip(tokens, pickFocus, rawPick.weights, "data-pick", { label: "Plain similarity" })}
+        ${sentenceStrip(tokens, pickFocus, h1.A[pickFocus], "data-pick", { label: "Query · key (head 1)" })}`;
+    }
+
+    function render() {
+      rootNode.innerHTML = body();
+      paintSwatches(rootNode);
+      drawFigures(rootNode, {
+        "arc-it": (svg) => drawArcSentence(svg, tokens, IT, 1, "it → cat"),
+        "dot-panels": drawDotPanels,
+        "ctx-plot": (svg) => drawContextPlot(svg, ctxTokens, ctxX, ctxFocus, ctx.weights, ctx.out),
+        "qk-plot": (svg) => drawQueryKeyPlot(svg, tokens, h1, IT),
+        "scale-4": (svg) => { const s = scaleSample(4); drawScaleBars(svg, s.raw, s.scaled); },
+        "scale-512": (svg) => { const s = scaleSample(512); drawScaleBars(svg, s.raw, s.scaled); },
+      });
+      renderPick();
+    }
+
+    onClickAttr(rootNode, "data-pick", (i) => {
+      pickFocus = i;
+      renderPick();
+    });
+    render();
+    U().onRedraw(render);
+    startProgressBar();
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     TRANSFORMER GUIDE
+     ════════════════════════════════════════════════════════════════ */
+
+  function mountTransformerGuide(rootNode) {
+    const tokens = math.tokensOf(SENTENCES[0]);
+    const X = math.embed(tokens);
+    const IT = 4;
+    const run = encoderLayer(X);
+    const n = tokens.length;
+    const hiddenCols = Array.from({ length: math.FFN.W1[0].length }, (_, j) => `h${j + 1}`);
+    const order = [orderDemo(["dog", "bites", "man"], false), orderDemo(["man", "bites", "dog"], false)];
+    const orderPe = [orderDemo(["dog", "bites", "man"], true), orderDemo(["man", "bites", "dog"], true)];
+    const esc = (token) => token.replace("<", "&lt;").replace(">", "&gt;");
+    const decRows = DECODER_INPUT.map(esc);
+    const crossA = CROSS_SCORES.map(softmax);
+    const ln = (() => {
+      const row = run.added1[IT];
+      const mean = row.reduce((a, b) => a + b, 0) / row.length;
+      const std = Math.sqrt(row.reduce((a, b) => a + (b - mean) ** 2, 0) / row.length);
+      return { mean, std };
+    })();
+    const PE_D = 32;
+    const PE_P = 50;
+    const PE_POS = 7;
+
+    /* Parameter count of the base model, from the paper's sizes. */
+    const d = 512;
+    const dff = 2048;
+    const vocab = 37000;
+    const params = [
+      ["Embeddings (shared)", vocab * d],
+      ["Encoder: attention × 6", 6 * 4 * d * d],
+      ["Encoder: feed-forward × 6", 6 * 2 * d * dff],
+      ["Decoder: 2 attentions × 6", 6 * 8 * d * d],
+      ["Decoder: feed-forward × 6", 6 * 2 * d * dff],
+    ];
+    const paramTotal = params.reduce((acc, [, value]) => acc + value, 0);
+
+    const chapters = [
+      { id: "tf-big", title: "The big picture", blurb: "a reader and a writer" },
+      { id: "tf-embedding", title: "Words in", blurb: "tokens and embeddings" },
+      { id: "tf-positions", title: "Where is each word?", blurb: "positional encoding" },
+      { id: "tf-encoder", title: "The encoder block", blurb: "talk, then think" },
+      { id: "tf-stack", title: "Stacking six blocks", blurb: "depth, and where the parameters live" },
+      { id: "tf-masking", title: "The decoder must not peek", blurb: "masked self-attention" },
+      { id: "tf-cross", title: "Reading the source", blurb: "cross-attention" },
+      { id: "tf-generate", title: "Writing the translation", blurb: "one word at a time" },
+      { id: "tf-training", title: "How it learns", blurb: "the paper's training recipe" },
+      { id: "tf-why", title: "Why it replaced RNNs", blurb: "the paper's Table 1" },
+      { id: "tf-recap", title: "Recap and self-check", blurb: "one sentence through the whole model" },
+    ];
+
+    const genFrames = DECODER_INPUT.map((_, t) => {
+      const probs = NEXT_PROBS[t];
+      const order3 = probs.map((p, i) => [p, i]).sort((a, b) => b[0] - a[0]).slice(0, 3);
+      const looked = crossA[t].indexOf(Math.max(...crossA[t]));
+      return { t, probs, order3, looked };
+    });
+
+    function body() {
+      return `
+        <div class="g-intro">
+          ${para("The <a href=\"./algorithm.html?id=attention\">Attention guide</a> built the core operation. This guide assembles the complete model from the 2017 paper “Attention Is All You Need”, one box of its famous diagram at a time. Each chapter starts in plain words, then a figure, then the maths, then a takeaway.")}
+          ${para("Two running examples: the <strong>encoder</strong> reads “the cat sat because it was tired” (the same toy model as the Attention guide), and the <strong>decoder</strong> translates <strong>“I love cats” → “ich liebe Katzen”</strong>, English to German, as in the paper.")}
+          ${guideToc(chapters)}
+        </div>
+
+        ${chapter("tf-big", 1, "Overview", "The big picture: a reader and a writer", `
+          ${plain(para("Think of a human translator. First they <strong>read</strong> the whole English sentence and understand it. Then they <strong>write</strong> the German sentence one word at a time, glancing back at the English as they go. The Transformer is built the same way: an <strong>encoder</strong> (the reader) and a <strong>decoder</strong> (the writer)."))}
+          ${figure("1.1", "The architecture from the paper (its Figure 1). Left: the encoder. Right: the decoder. The numbered badges match the chapters of this guide; click one to jump there.", svgSlot("map", "0 0 720 640", "Transformer architecture"), true)}
+          ${para("Both halves are built from the same few parts: attention, a small feed-forward network, and “Add & Norm” wrappers. Each half is a stack of N = 6 identical blocks. There is no recurrence: every word is processed at the same time.")}
+          ${takeaway("Encoder reads the whole input at once; decoder writes the output word by word while looking back at the encoder.")}
+        `)}
+
+        ${chapter("tf-embedding", 2, "Encoder · input", "Words in: tokens and embeddings", `
+          ${plain(para("Text is first cut into <strong>tokens</strong>: whole words or common pieces of words (“trans” + “former”), so the model can handle words it has never seen. Each token is then turned into a vector by looking it up in a learned table, the <strong>embedding</strong>, exactly as in Chapter 2 of the Attention guide."))}
+          ${figure("2.1", "From text to vectors. The token IDs here are illustrative. The paper used a shared vocabulary of about 37,000 sub-word tokens (byte-pair encoding) for English and German.",
+            flow(["“I love cats”", "→", "<span>tokens</span><small>I · love · cats</small>", "→", "<span>IDs</span><small>(e.g. 41 · 2093 · 7311)</small>", "→", "<span>vectors</span><small>3 × 512</small>"]))}
+          ${deeper("Two details from the paper", `
+            <ul class="g-list">
+              <li>The embedding vectors are <strong>multiplied by √d<sub>model</sub></strong> (√512 ≈ 22.6) before positions are added, so the position signal (next chapter) doesn't drown out the word's meaning.</li>
+              <li>The same matrix is <strong>shared</strong> by the input embedding, the output embedding and the final Linear layer that turns vectors back into word scores. One table serves all three jobs.</li>
+            </ul>
+            ${ref("Vaswani et al. 2017, §3.4")}
+          `)}
+          ${takeaway("Tokens become vectors via a learned lookup table, shared between input and output.")}
+        `)}
+
+        ${chapter("tf-positions", 3, "Encoder · input", "Where is each word? Positional encoding", `
+          ${plain(para("Attention looks only at <em>which</em> words are present, never at <em>where</em> they are. To attention, “dog bites man” and “man bites dog” are the same bag of words, which is clearly a problem. The fix is to <strong>stamp each word with its position</strong> by adding a position vector to it before the first layer."))}
+          ${figure("3.1", "The problem, with real numbers. Without positions, “dog” gets exactly the same output whether it bites or is bitten. With positions added, the outputs differ.",
+            `<div class="table-panel"><table>
+              <thead><tr><th>Output for “dog”</th><th>in “dog bites man”</th><th>in “man bites dog”</th></tr></thead>
+              <tbody>
+                <tr><td>without positions</td><td class="mono">(${order[0].O[0].map((v) => fmt(v)).join(", ")})</td><td class="mono">(${order[1].O[2].map((v) => fmt(v)).join(", ")})</td></tr>
+                <tr><td>with positions</td><td class="mono">(${orderPe[0].O[0].map((v) => fmt(v)).join(", ")})</td><td class="mono">(${orderPe[1].O[2].map((v) => fmt(v)).join(", ")})</td></tr>
+              </tbody></table></div>`)}
+          ${para("The paper's position vector works like a <strong>set of clock hands turning at different speeds</strong>. The first hand spins fast (a full turn about every 6 positions), the next more slowly, and the last takes thousands of positions per turn. Together, the hands give every position a unique reading, like the digits of a counter, but smooth.")}
+          ${figure("3.2", `The whole positional-encoding table for 50 positions and 32 dimensions (teal = positive, orange = negative). Each row is one position's “stamp”. Left columns change quickly from row to row; right columns change slowly. Position ${PE_POS} is outlined.`, svgSlot("pe-heat", "0 0 560 300", "positional encoding matrix"), true)}
+          ${figure("3.3", `Four of the 16 clock hands at position ${PE_POS}.`, peClocks(PE_POS, PE_D))}
+          ${figure("3.4", `Nearby positions get similar stamps: position ${PE_POS}'s stamp matches itself best and its neighbours next best. This gives attention an easy way to notice “these words are close together”.`, svgSlot("pe-sim", "0 0 560 220", "similarity of position codes"))}
+          ${deeper("The math, and why the paper chose sines and cosines", `
+            ${mathBlock(String.raw`PE_{(pos,\,2i)} = \sin(pos\cdot\omega_i),\quad PE_{(pos,\,2i+1)} = \cos(pos\cdot\omega_i),\quad \omega_i = \frac{1}{10000^{2i/d_{\text{model}}}}`)}
+            ${para("Moving forward k positions turns every clock hand by a fixed angle, whatever the starting position. A turn is a linear operation (a rotation matrix), so <em>relative</em> positions are easy for the model to use, which is the paper's stated reason:")}
+            ${mathBlock(String.raw`\begin{pmatrix}\sin\omega(p{+}k)\\ \cos\omega(p{+}k)\end{pmatrix} = \begin{pmatrix}\cos\omega k & \sin\omega k\\ -\sin\omega k & \cos\omega k\end{pmatrix}\begin{pmatrix}\sin\omega p\\ \cos\omega p\end{pmatrix}`)}
+            ${para("The authors also tried <em>learned</em> position vectors and got nearly identical results (Table 3, row E); they kept sinusoids because they might work for sentences longer than any seen in training.")}
+            ${ref("Vaswani et al. 2017, §3.5")}
+          `)}
+          ${takeaway("Positional encoding adds a unique, smoothly varying stamp to each position, the only place word order enters the model.")}
+        `)}
+
+        ${chapter("tf-encoder", 4, "Encoder", "The encoder block: talk, then think", `
+          ${plain(para("One encoder block does two jobs in turn. First the words <strong>talk</strong>: attention lets each word gather information from the others. Then each word <strong>thinks</strong>: a small neural network processes it on its own. Around each job is a safety wrapper, called <strong>Add & Norm</strong>."))}
+          ${figure("4.1", "Inside one encoder block. We now follow the word “it” through each stage with real numbers from the toy model.",
+            flow(["input", "→", "<span>multi-head attention</span><small>talk</small>", "→", "add & norm", "→", "<span>feed-forward</span><small>think</small>", "→", "add & norm", "→", "output"]))}
+
+          <h3 class="g-sub">4a · Attention: the words talk</h3>
+          ${para("Exactly the multi-head attention from the Attention guide. “it” comes back carrying <em>alive</em> from “cat” and <em>action</em> from the verbs.")}
+          ${figure("4.2", "Attention output for every word (Z). The highlighted row is “it”.", heatmap(run.mha.out, { rows: tokens, cols: FEATURES, focusRow: IT, title: "Z = MultiHead(X)", shape: `${n} × 4` }))}
+
+          <h3 class="g-sub">4b · Add: keep the original, add the update</h3>
+          ${plain(para("Instead of replacing a word with the attention output, we <strong>add</strong> the two. The attention output is treated as a <em>correction</em> on top of the original word. “it” keeps “refers back” and gains “alive”. This shortcut is called a <strong>residual connection</strong>."))}
+          ${figure("4.3", "“it” before the block (x) and after adding the attention output (x + z).",
+            featureCompare(FEATURES, [
+              { name: "x (input)", values: run.X[IT], color: C().c },
+              { name: "x + z (after add)", values: run.added1[IT], color: C().b },
+            ], 2))}
+          ${deeper("Why the residual matters for training", `
+            ${mathBlock(String.raw`\frac{\partial\,(x + F(x))}{\partial x} = I + \frac{\partial F}{\partial x}`)}
+            ${para("Even if a sub-layer's own gradient is tiny, the identity <b>I</b> passes the gradient back unchanged. That fixes the vanishing gradients from the Backpropagation page and lets the model stack many layers.")}
+          `)}
+
+          <h3 class="g-sub">4c · Norm: keep every word at a steady size</h3>
+          ${plain(para("After adding, some numbers can grow large. <strong>Layer normalisation</strong> re-centres each word's vector to average 0 and rescales it to spread 1, using only that word's own numbers. Values stay in a comfortable range however many layers are stacked."))}
+          ${figure("4.4", `For “it”: mean μ = ${fmt(ln.mean, 3)}, spread σ = ${fmt(ln.std, 3)} before; mean 0, spread 1 after.`,
+            featureCompare(FEATURES, [
+              { name: "before norm", values: run.added1[IT], color: C().c },
+              { name: "after norm", values: run.norm1[IT], color: C().b },
+            ], 2))}
+          ${mathBlock(String.raw`\operatorname{LayerNorm}(x) = \gamma\,\frac{x-\mu}{\sigma} + \beta`)}
+
+          <h3 class="g-sub">4d · Feed-forward: each word thinks on its own</h3>
+          ${plain(para("Now a small ANN, the very kind from the earlier pages, processes <strong>each word separately</strong>, with the same weights for every word: expand to a wider hidden layer with ReLU, then project back. Attention moved information <em>between</em> words; this step works <em>within</em> each word on what it just gathered."))}
+          ${figure("4.5", "Hidden layer of the feed-forward network (4 → 8 here; 512 → 2048 in the paper). Zeros are units switched off by ReLU. (The toy's feed-forward weights are random but fixed.)",
+            heatmap(run.hidden, { rows: tokens, cols: hiddenCols, focusRow: IT, title: "ReLU(x W₁ + b₁)", shape: `${n} × 8` }))}
+          ${mathBlock(String.raw`\operatorname{FFN}(x) = \max(0,\; xW_1 + b_1)\,W_2 + b_2`)}
+
+          <h3 class="g-sub">4e · Add & norm again: the block's output</h3>
+          ${figure("4.6", "The block's output has exactly the same shape as its input (7 words × 4 numbers), which is what lets blocks be stacked.",
+            heatmap(run.out, { rows: tokens, cols: FEATURES, focusRow: IT, title: "Encoder block output", shape: `${n} × 4` }))}
+          ${deeper("The whole block in two lines", `
+            ${mathBlock(String.raw`h = \operatorname{LayerNorm}\big(x + \operatorname{MultiHead}(x)\big),\qquad y = \operatorname{LayerNorm}\big(h + \operatorname{FFN}(h)\big)`)}
+            ${para("The paper also applies dropout (rate 0.1) to each sub-layer's output just before the add.")}
+            ${ref("Vaswani et al. 2017, §3.1, §3.3")}
+          `)}
+          ${takeaway("Encoder block = attention (talk) + feed-forward (think), each wrapped in a residual add and a layer norm.")}
+        `)}
+
+        ${chapter("tf-stack", 5, "Encoder & decoder", "Stacking six blocks", `
+          ${plain(para("One block lets each word gather information once. Stacking blocks lets it happen repeatedly: early layers might link “it” to “cat”, later layers can build on that (“the cat was tired, so it sat”). The paper stacks <strong>N = 6</strong> blocks in the encoder and 6 in the decoder, each with its own weights."))}
+          ${figure("5.1", `Where the base model's parameters live, counted from the paper's sizes (d<sub>model</sub> = 512, d<sub>ff</sub> = 2048, vocabulary ≈ 37,000). This count gives ≈ ${fmt(paramTotal / 1e6, 0)} M; the paper reports 65 M once biases and norms are included.`,
+            barList(params.map(([, v]) => v / 1e6), params.map(([label]) => label), { digits: 1, color: C().c }) + '<p class="caption">Millions of parameters. Feed-forward layers hold more than attention.</p>')}
+          ${takeaway("Six identical blocks, each refining the previous one's output. Same shape in and out makes stacking trivial.")}
+        `)}
+
+        ${chapter("tf-masking", 6, "Decoder", "The decoder must not peek: masked self-attention", `
+          ${plain(para("The decoder writes one word at a time. But to train fast, the whole correct German sentence is fed in at once, shifted one step right, and every position learns to predict its next word in parallel. Position “ich” must predict “liebe”. If it could simply <em>look</em> at “liebe” in its input, it would learn to cheat. So the decoder's self-attention is <strong>masked</strong>: each position may only look at itself and earlier positions."))}
+          ${figure("6.1", "Left: without the mask, the row for “ich” puts most of its attention on “liebe”, the very word it must predict. Right: with the mask, every score above the diagonal is set to −∞ before softmax, so future words get exactly 0%. (Scores hand-set for illustration.)",
+            `<div class="g-two">
+              <div><div class="tl-subhead">Without mask: cheating</div>${heatmap(SELF_SCORES.map(softmax), { rows: decRows, cols: decRows, maxAbs: 1, colHint: "keys →" })}</div>
+              <div><div class="tl-subhead">With causal mask</div>${heatmap(maskedScores(SELF_SCORES, true).map(softmax), { rows: decRows, cols: decRows, maxAbs: 1, colHint: "keys →" })}</div>
+            </div>`, true)}
+          ${deeper("The math", `
+            ${mathBlock(String.raw`\operatorname{softmax}\!\Big(\frac{QK^{\top}}{\sqrt{d_k}} + M\Big),\qquad M_{ij} = \begin{cases}0 & j \le i\\ -\infty & j > i\end{cases}`)}
+            ${para("Because e<sup>−∞</sup> = 0, masked positions get exactly zero weight. Training with the true previous words like this is called <strong>teacher forcing</strong>.")}
+            ${ref("Vaswani et al. 2017, §3.2.3")}
+          `)}
+          ${takeaway("The causal mask lets the decoder train on whole sentences in parallel without seeing the future.")}
+        `)}
+
+        ${chapter("tf-cross", 7, "Decoder", "Reading the source: cross-attention", `
+          ${plain(para("The decoder's middle layer is where translation happens. Its <strong>queries come from the German side</strong> (“what do I need to write next?”), while its <strong>keys and values come from the encoder's output</strong> for the English sentence. Each German position can look directly at any English word."))}
+          ${figure("7.1", "Cross-attention: rows are decoder positions, columns are English words. Each position looks mostly at the English word it is about to translate. Nobody tells the model this alignment; it emerges from training. (Weights hand-set to show the typical pattern.)",
+            heatmap(crossA, { rows: decRows, cols: SOURCE, maxAbs: 1, colHint: "English (keys & values from the encoder) →" }))}
+          ${figure("7.2", "Where the three inputs of cross-attention come from.",
+            flow(["<span>Q</span><small>from decoder</small>", "<span>K, V</span><small>from encoder output</small>", "→", "<span>Attention</span><small>softmax(QKᵀ/√dₖ)V</small>"]))}
+          ${takeaway("Cross-attention is the bridge: decoder queries, encoder keys and values.")}
+        `)}
+
+        ${chapter("tf-generate", 8, "Decoder · output", "Writing the translation, one word at a time", `
+          ${plain(para("At the top of the decoder, a <strong>Linear</strong> layer gives a score to every word in the vocabulary, and <strong>softmax</strong> turns the scores into probabilities. The model picks a word, appends it to its input, and runs again, until it produces the end-of-sentence token. The encoder runs only once; its output is reused at every step."))}
+          <div class="g-film">
+            ${genFrames
+              .map((frame) => `
+                <div class="g-film-frame">
+                  <div class="g-film-text">
+                    <h4>Step ${frame.t + 1}</h4>
+                    <p>Decoder input: <b>${DECODER_INPUT.slice(0, frame.t + 1).map(esc).join(" ")}</b><br />Looks mostly at: <b>“${SOURCE[frame.looked]}”</b> (${pct(crossA[frame.t][frame.looked])})<br />Picks: <b>${esc(OUT_VOCAB[frame.order3[0][1]])}</b></p>
+                  </div>
+                  <div class="g-film-fig">${barList(frame.order3.map(([p]) => p), frame.order3.map(([, i]) => esc(OUT_VOCAB[i])), { max: 1, asPercent: true, highlight: 0, color: C().b })}</div>
+                </div>`)
+              .join('<div class="g-film-arrow" aria-hidden="true">↓</div>')}
+          </div>
+          <p class="caption">Top-3 next-word probabilities at each step (illustrative). Result: “ich liebe Katzen”.</p>
+          ${deeper("How the paper decoded", `
+            ${para("Instead of always taking the single most likely word (greedy decoding), the paper used <strong>beam search</strong> with beam size 4: it keeps the 4 best partial translations at each step and picks the best complete one, with a length penalty (α = 0.6) so short outputs aren't unfairly favoured.")}
+            ${ref("Vaswani et al. 2017, §6.1")}
+          `)}
+          ${takeaway("Generation is a loop: predict a word, append it, repeat. Training is parallel; generation is not.")}
+        `)}
+
+        ${chapter("tf-training", 9, "Training", "How it learns: the training recipe", `
+          ${plain(para("Training shows the model millions of sentence pairs. At every position it predicts the next word, and the <strong>loss</strong> (cross-entropy) measures how much probability it gave the correct word. Backpropagation then nudges every weight to do better. The paper adds a few tricks to make this stable and fast."))}
+          ${figure("9.1", "The learning-rate schedule (Equation 3): it rises for the first 4,000 steps (warm-up), then slowly decays. Early on the model is random and its gradient estimates are unreliable, so it starts gently.", svgSlot("lr", "0 0 560 260", "learning rate schedule"))}
+          ${figure("9.2", "Label smoothing (ε = 0.1): instead of demanding 100% on the correct word, the target keeps 90% there and spreads the rest over the other words. This makes the model less over-confident and slightly improved translation quality.",
+            `<div class="g-two">
+              <div><div class="tl-subhead">Hard target</div>${barList([1, 0, 0, 0, 0], ["liebe", "hasse", "mag", "habe", "bin"], { max: 1, asPercent: true, highlight: 0 })}</div>
+              <div><div class="tl-subhead">Smoothed target</div>${barList([0.92, 0.02, 0.02, 0.02, 0.02], ["liebe", "hasse", "mag", "habe", "bin"], { max: 1, asPercent: true, highlight: 0 })}</div>
+            </div>`)}
+          ${figure("9.3", "The paper's settings next to our toy model.",
+            `<div class="table-panel"><table>
+              <thead><tr><th>Setting</th><th>Toy model</th><th>Paper: base</th><th>Paper: big</th></tr></thead>
+              <tbody>
+                <tr><td>Layers N</td><td>1</td><td>6</td><td>6</td></tr>
+                <tr><td>d<sub>model</sub> / d<sub>ff</sub></td><td>4 / 8</td><td>512 / 2048</td><td>1024 / 4096</td></tr>
+                <tr><td>Heads h / d<sub>k</sub></td><td>2 / 2</td><td>8 / 64</td><td>16 / 64</td></tr>
+                <tr><td>Dropout / label smoothing</td><td>—</td><td>0.1 / 0.1</td><td>0.3 / 0.1</td></tr>
+                <tr><td>Optimizer</td><td>—</td><td colspan="2">Adam, β₁ = 0.9, β₂ = 0.98, ε = 10⁻⁹</td></tr>
+                <tr><td>Training</td><td>—</td><td>100K steps, 12 h on 8 GPUs</td><td>300K steps, 3.5 days</td></tr>
+                <tr><td>Parameters</td><td>140 (one encoder layer)</td><td>65 M</td><td>213 M</td></tr>
+                <tr><td>BLEU, English→German</td><td>—</td><td>27.3</td><td>28.4</td></tr>
+              </tbody></table></div>`)}
+          ${deeper("The math", `
+            ${mathBlock(String.raw`\text{lrate} = d_{\text{model}}^{-0.5}\cdot\min\!\big(\text{step}^{-0.5},\; \text{step}\cdot\text{warmup}^{-1.5}\big),\qquad \text{warmup} = 4000`)}
+            ${ref("Vaswani et al. 2017, §5")}
+          `)}
+          ${takeaway("Next-word cross-entropy, teacher forcing, warm-up, dropout and label smoothing: a careful recipe matters as much as the architecture.")}
+        `)}
+
+        ${chapter("tf-why", 10, "The argument", "Why it replaced RNNs", `
+          ${plain(para("Before Transformers, sequence models were mostly <strong>RNNs</strong>: they read one word at a time, passing a memory vector along. That has two costs. Information from word 1 must survive many hand-offs to reach word 50, and fades on the way. And word 50 can't be processed until words 1–49 are done, which wastes a GPU's parallel power. Self-attention fixes both: every word reaches every other in <strong>one step</strong>, all at once."))}
+          ${figure("10.1", "Top: in an RNN, word 1 reaches word 8 through 7 hand-offs, one after another. Bottom: with self-attention, word 8 reaches every word directly, in parallel.", svgSlot("paths", "0 0 560 260", "RNN chain versus direct attention"))}
+          ${figure("10.2", "The paper's Table 1, with numbers for a 50-word sentence and d = 512. Self-attention wins on all three, as long as sentences are shorter than d. Its weak spot: cost grows with n², so very long inputs get expensive.",
+            `<div class="table-panel"><table>
+              <thead><tr><th>Layer</th><th>Cost per layer</th><th>Sequential steps</th><th>Longest path</th></tr></thead>
+              <tbody>
+                <tr><td><b>Self-attention</b></td><td class="mono">O(n²·d) ≈ 1.3 M</td><td class="mono">O(1) = 1</td><td class="mono">O(1) = 1</td></tr>
+                <tr><td><b>Recurrent</b></td><td class="mono">O(n·d²) ≈ 13.1 M</td><td class="mono">O(n) = 50</td><td class="mono">O(n) = 50</td></tr>
+              </tbody></table></div>`)}
+          ${ref("Vaswani et al. 2017, §4, Table 1")}
+          ${takeaway("Shorter paths and full parallelism made Transformers both better and much faster to train.")}
+        `)}
+
+        ${chapter("tf-recap", 11, "Recap", "One sentence through the whole model", `
+          <ol class="g-recap">
+            <li><b>Tokens → vectors</b> via the embedding table (× √d<sub>model</sub>).</li>
+            <li><b>+ positional encoding</b>, so word order is visible.</li>
+            <li><b>Encoder × 6</b>: attention (talk) → add & norm → feed-forward (think) → add & norm.</li>
+            <li><b>Decoder × 6</b>: masked self-attention → add & norm → cross-attention to the encoder → add & norm → feed-forward → add & norm.</li>
+            <li><b>Linear + softmax</b>: probabilities for the next word; pick one, append, repeat.</li>
+            <li><b>Training</b>: next-word cross-entropy with teacher forcing, warm-up schedule, dropout, label smoothing.</li>
+          </ol>
+          ${quiz([
+            { q: "Remove positional encoding. What can the model still do, and what not?", a: "It still knows which words are present and how they relate by content, but it can't distinguish “dog bites man” from “man bites dog” (Chapter 3)." },
+            { q: "What is the difference between the decoder's two attention layers?", a: "Masked self-attention: Q, K and V all come from the German words so far, with the future masked. Cross-attention: Q from the decoder, K and V from the encoder output (Chapters 6–7)." },
+            { q: "Generation is word by word. How can training be parallel?", a: "In training the whole true target is fed in at once (teacher forcing) and the causal mask hides the future, so all positions are predicted in one pass (Chapter 6)." },
+            { q: "Why x + Sublayer(x) instead of Sublayer(x)?", a: "The identity path keeps gradients flowing through deep stacks, and each layer only needs to learn a correction (Chapter 4b)." },
+            { q: "When is an RNN layer cheaper than self-attention?", a: "When the sequence is longer than the width (n > d): O(n·d²) < O(n²·d). The RNN still needs n sequential steps (Chapter 10)." },
+          ])}
+          <div class="tl-next">
+            <div><div class="eyebrow">Read the original</div><strong>Vaswani et al., “Attention Is All You Need” (2017)</strong><p class="caption">§3.1–3.5 → chapters 1–8 · §4 → chapter 10 · §5 → chapter 9 · §6 → results and ablations.</p></div>
+            <a class="button primary" href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Open on arXiv ↗</a>
+          </div>
+        `)}
+      `;
+    }
+
+    function render() {
+      rootNode.innerHTML = body();
+      drawFigures(rootNode, {
+        map: drawGuideMap,
+        "pe-heat": (svg) => drawPeHeatmap(svg, PE_POS, PE_D, PE_P),
+        "pe-sim": (svg) => drawPeSimilarity(svg, PE_POS, PE_D, PE_P),
+        lr: drawLrSchedule,
+        paths: (svg) => drawPaths(svg, 8),
+      });
+    }
+
+    /* Badges and boxes on Figure 1 jump to their chapter. */
+    const PART_CHAPTER = {
+      embed: "tf-embedding", pe: "tf-positions", mha: "tf-encoder", addnorm: "tf-encoder", ffn: "tf-encoder",
+      stack: "tf-stack", masked: "tf-masking", cross: "tf-cross", linear: "tf-generate", softmax: "tf-generate",
+    };
+    const jump = (target) => {
+      const id = target.getAttribute("data-goto") || PART_CHAPTER[target.getAttribute("data-part")];
+      const node = id && document.getElementById(id);
+      if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    rootNode.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-goto], [data-part]");
+      if (target) jump(target);
+    });
+    rootNode.addEventListener("keydown", (event) => {
+      const target = event.target.closest("[data-goto], [data-part]");
+      if (target && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        jump(target);
+      }
+    });
 
     render();
     U().onRedraw(render);
-  }
-
-  function mountTransformerQuiz(node) {
-    node.innerHTML = lesson(
-      "tf-check-lab",
-      9,
-      "Check yourself",
-      "Try each one before you open it.",
-      "",
-      `${quiz([
-        {
-          q: "If you removed positional encoding, what could the model still do, and what couldn't it?",
-          a: "It could still tell which words are present and how they relate by content. It could not tell order apart: “dog bites man” and “man bites dog” would give the same set of outputs (step 2).",
-        },
-        {
-          q: "What is the difference between the decoder's two attention layers?",
-          a: "Masked self-attention: queries, keys and values all come from the target words so far, with the future masked out. Cross-attention: queries come from the decoder, keys and values come from the encoder output. That is where the source sentence is read (steps 5–6).",
-        },
-        {
-          q: "Generation is one word at a time. So how is training parallel?",
-          a: "In training the whole (true) target is fed in at once (teacher forcing). The causal mask makes position i see only positions ≤ i, so all positions compute their predictions in one pass with no information leak (step 5).",
-        },
-        {
-          q: "Why does every sub-layer use x + Sublayer(x) instead of just Sublayer(x)?",
-          a: "The identity path keeps gradients flowing through deep stacks (∂/∂x = I + ∂F/∂x). Each sub-layer then only has to learn a correction, not rebuild the whole representation (step 4).",
-        },
-        {
-          q: "When would an RNN layer be cheaper than self-attention?",
-          a: "When the sequence is longer than the width (n > d). Self-attention costs O(n²·d) against the RNN's O(n·d²). The RNN still has O(n) sequential steps and O(n) path length (step 7).",
-        },
-        {
-          q: "Where does the FFN fit into “attention is all you need”, if it isn't attention?",
-          a: "The title means no recurrence and no convolution. Between words, information moves only through attention. The FFN works within each word, and it holds most of the parameters.",
-        },
-      ])}
-      <div class="tl-next">
-        <div>
-          <div class="eyebrow">Read the paper next</div>
-          <strong>Vaswani et al., “Attention Is All You Need” (2017)</strong>
-          <p class="caption">Sections 3.1–3.5 match steps 1–6 above, Section 4 is step 7, and Section 5 is step 8. Section 6 covers results and the ablations in Table 3.</p>
-        </div>
-        <a class="button primary" href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Open on arXiv ↗</a>
-      </div>`
-    );
+    startProgressBar();
   }
 
   root.MLExtraLabs = Object.assign(root.MLExtraLabs || {}, {
-    attention: mountAttention,
-    transformer: mountTransformer,
+    attention: mountAttentionGuide,
+    transformer: mountTransformerGuide,
   });
+
+  /* Shared building blocks for other sequence-model pages. */
+  root.MLSeqUI = {
+    fmt, pct, rgba, cellStyle, heatmap, barList, featureCompare, sentenceStrip, quiz, onClickAttr,
+    svgText, arrowMarker, tex, paintSwatches, para, plain, deeper, takeaway, figure, chapter, guideToc,
+    flow, mathBlock, svgSlot, startProgressBar, drawFigures,
+  };
 })();

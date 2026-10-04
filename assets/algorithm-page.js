@@ -374,6 +374,32 @@
     node.textContent = JSON.stringify(graph);
   }
 
+  /* Long-form guide pages (Attention, Transformer) read top to bottom
+     like a book chapter: no feature badges and no deep-dive cards, since
+     the guide itself is the explanation. */
+  function renderGuideShell(category) {
+    const guide = definition.guide || {};
+    document.body.classList.add("guide-mode");
+    root.innerHTML = `
+      <article class="guide">
+        <header class="guide-hero">
+          <div class="breadcrumbs">
+            <a href="../index.html">Home</a>
+            <span>/</span>
+            <a href="${categoryHref(definition.category)}">${category.title}</a>
+            <span>/</span>
+            <span>${definition.title}</span>
+          </div>
+          <div class="guide-kicker">${guide.kicker || category.title}</div>
+          <h1>${guide.heading || definition.title}</h1>
+          <p class="guide-lead">${definition.subtitle}</p>
+          <div class="guide-meta">${(guide.meta || []).map((item) => `<span>${item}</span>`).join("")}</div>
+        </header>
+        <div id="algorithm-workspace"></div>
+      </article>
+    `;
+  }
+
   function renderShell() {
     const category = categoryOf(definition.category);
     document.title = `${definition.title} | Machine Learning Studio`;
@@ -398,64 +424,66 @@
 
     writeStructuredData(canonical, category);
 
-    root.innerHTML = `
-      <section class="page-hero algorithm-shell">
-        <div class="breadcrumbs">
-          <a href="../index.html">Home</a>
-          <span>/</span>
-          <a href="${categoryHref(definition.category)}">${category.title}</a>
-          <span>/</span>
-          <span>${definition.title}</span>
-        </div>
-        <div class="eyebrow">${category.title}</div>
-        <h1>${definition.title}</h1>
-        <p class="page-lead">${definition.subtitle}</p>
-        <div class="hero-meta">
-          ${(definition.heroMeta || [
-            "✎ <b>Editable</b> input data",
-            "∑ <b>Live</b> formulas with your numbers",
-            "▤ <b>Step-by-step</b> logic trail",
-            "◈ Deep-dive notes below",
-          ]).map((item) => `<span>${item}</span>`).join("")}
-        </div>
-      </section>
-
-      <section id="algorithm-workspace"></section>
-
-      <section class="lab">
-        <div class="section-header">
-          <div>
-            <div class="eyebrow">Detailed Explanation</div>
-            <h2>Interpretation, math, usage, and failure modes</h2>
+    if (definition.layout === "guide") {
+      renderGuideShell(category);
+    } else {
+      root.innerHTML = `
+        <section class="page-hero algorithm-shell">
+          <div class="breadcrumbs">
+            <a href="../index.html">Home</a>
+            <span>/</span>
+            <a href="${categoryHref(definition.category)}">${category.title}</a>
+            <span>/</span>
+            <span>${definition.title}</span>
           </div>
-        </div>
-        <div class="detail-grid">
-          <article class="detail-card">
-            <h3>Intuition</h3>
-            <p>${definition.detail.intuition}</p>
-            ${definition.detail.analogy ? `<ul>${definition.detail.analogy.map(a => `<li>${a}</li>`).join('')}</ul>` : ''}
-          </article>
-          <article class="detail-card">
-            <h3>Core Mathematics</h3>
-            <p>${definition.detail.math}</p>
-            ${definition.detail.keyFormulas
-              ? `<div class="detail-formulas">${definition.detail.keyFormulas
-                  .map((f) => `<div class="formula-tex">${U.tex(f, true)}</div>`)
-                  .join('')}</div>`
-              : ''}
-          </article>
-          <article class="detail-card">
-            <h3>When To Use It</h3>
-            <p>${definition.detail.use}</p>
-          </article>
-          <article class="detail-card">
-            <h3>Watch Out For</h3>
-            <p>${definition.detail.caution}</p>
-          </article>
-        </div>
-      </section>
+          <div class="eyebrow">${category.title}</div>
+          <h1>${definition.title}</h1>
+          <p class="page-lead">${definition.subtitle}</p>
+          <div class="hero-meta">
+            <span>✎ <b>Editable</b> input data</span>
+            <span>∑ <b>Live</b> formulas with your numbers</span>
+            <span>▤ <b>Step-by-step</b> logic trail</span>
+            <span>◈ Deep-dive notes below</span>
+          </div>
+        </section>
 
-    `;
+        <section id="algorithm-workspace"></section>
+
+        <section class="lab">
+          <div class="section-header">
+            <div>
+              <div class="eyebrow">Detailed Explanation</div>
+              <h2>Interpretation, math, usage, and failure modes</h2>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <article class="detail-card">
+              <h3>Intuition</h3>
+              <p>${definition.detail.intuition}</p>
+              ${definition.detail.analogy ? `<ul>${definition.detail.analogy.map(a => `<li>${a}</li>`).join('')}</ul>` : ''}
+            </article>
+            <article class="detail-card">
+              <h3>Core Mathematics</h3>
+              <p>${definition.detail.math}</p>
+              ${definition.detail.keyFormulas
+                ? `<div class="detail-formulas">${definition.detail.keyFormulas
+                    .map((f) => `<div class="formula-tex">${U.tex(f, true)}</div>`)
+                    .join('')}</div>`
+                : ''}
+            </article>
+            <article class="detail-card">
+              <h3>When To Use It</h3>
+              <p>${definition.detail.use}</p>
+            </article>
+            <article class="detail-card">
+              <h3>Watch Out For</h3>
+              <p>${definition.detail.caution}</p>
+            </article>
+          </div>
+        </section>
+
+      `;
+    }
 
     const navMap = {
       foundations: "./introduction.html",
