@@ -33,7 +33,7 @@
       title: "Neural Networks",
       page: "neural.html",
       description:
-        "Activation functions, gradient descent and backpropagation, then attention and the Transformer architecture built on top of them.",
+        "Activation functions, gradient descent and backpropagation, then attention, the Transformer, large language models, and how small LLMs are made with distillation, pruning and quantization.",
     },
   ];
 
@@ -911,7 +911,7 @@
       engine: "sequence-primer",
       layout: "guide",
       guide: {
-        kicker: "Guide · Part 1 of 4",
+        kicker: "Guide · Part 1 of 5",
         heading: "Before attention: the building blocks",
         meta: ["9 chapters", "≈ 20 min read", "Live tokenizer from GPT-2 and GPT-4", "5 editable widgets"],
       },
@@ -937,7 +937,7 @@
         "How “it” learns that it means “the cat”: queries, keys and values, built up step by step from the dot product you already know.",
       layout: "guide",
       guide: {
-        kicker: "Guide · Part 2 of 4",
+        kicker: "Guide · Part 2 of 5",
         heading: "Attention, from the ground up",
         meta: ["12 short chapters", "≈ 25 min read", "Needs: what a neuron is", "Follows “Attention Is All You Need”"],
       },
@@ -966,7 +966,7 @@
         "The full architecture from “Attention Is All You Need”, one box at a time: word order, the encoder block, the masked decoder, and why it replaced RNNs.",
       layout: "guide",
       guide: {
-        kicker: "Guide · Part 3 of 4",
+        kicker: "Guide · Part 3 of 5",
         heading: "The Transformer, box by box",
         meta: ["11 chapters", "≈ 30 min read", "Needs: the Attention guide", "Every box of the paper's Figure 1"],
       },
@@ -992,7 +992,7 @@
       engine: "llm",
       layout: "guide",
       guide: {
-        kicker: "Guide · Part 4 of 4",
+        kicker: "Guide · Part 4 of 5",
         heading: "From the Transformer to today's LLMs",
         meta: ["11 chapters", "≈ 30 min read", "Real GPT-2 tokenizer", "Published model sizes"],
       },
@@ -1006,6 +1006,33 @@
         "Generation is sequential and memory-bound: the KV cache grows with context length. Pretrained models predict text rather than follow instructions until they are fine-tuned.",
         ["Autocomplete, scaled up: an LLM is a very good next-word predictor that has been trained further to act as a helpful assistant."],
         [`\mathcal{L} = -\frac{1}{n}\sum_t \log p_\theta(x_t \mid x_{<t})`, `\text{params} \approx 12\,L\,d^2 + V d`]
+      ),
+    }),
+    page({
+      id: "small-llm",
+      title: "Small LLMs & Distillation",
+      category: "neural",
+      engine: "small-llm",
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Part 5 of 5",
+        heading: "Small LLMs: distillation, pruning and quantization",
+        meta: ["11 chapters", "≈ 35 min read", "Two networks trained live in your browser", "9 editable widgets"],
+      },
+      subtitle: "How small language models get good: training past Chinchilla, spending parameters wisely, knowledge distillation from a teacher, pruning and quantization, with live widgets for each.",
+      summary:
+        "How small language models get good: scaling laws, knowledge distillation with soft targets, forward vs reverse KL, pruning and quantization, each with a live widget.",
+      detail: details(
+        "A small language model fits on a laptop or phone, answers faster and costs less per token. It gets good by being trained far longer than compute-optimal, by spending its parameters carefully (tied embeddings, grouped-query attention, deep-and-thin shapes), by learning from a large teacher model (knowledge distillation), by being cut down from a larger model (pruning) and by storing each weight in fewer bits (quantization).",
+        "Distillation trains the student on the teacher's temperature-softened probabilities: L = α·CE(y, p_s) + (1−α)·T²·KL(p_t^(T) ‖ p_s^(T)). The Chinchilla law L(N, D) = E + A/N^α + B/D^β says how loss trades off model size and data. Pruning keeps large-magnitude weights or whole structures and re-fits the rest; quantization stores q = round(w/s) with a per-group scale s = max|w|/(2^(b−1)−1).",
+        "On-device assistants, low-latency and low-cost serving, private on-premise deployment, draft models for speculative decoding, and cheap task-specific fine-tuning.",
+        "A student cannot copy more than it has capacity for. Logit distillation needs the teacher's raw outputs and a shared tokenizer. Forward KL makes a student spread over everything the teacher might say; reverse KL makes it commit to one answer. Pruning and aggressive quantization lose accuracy unless the model is healed by further training.",
+        ["An apprentice and a master: instead of only hearing whether each answer was right or wrong, the apprentice watches how confident the master is about every option, and learns much faster from that."],
+        [
+          `\\mathcal{L} = \\alpha\\,\\mathrm{CE}(y, p^s) + (1-\\alpha)\\,T^2\\,\\mathrm{KL}\\big(p^{t,(T)} \\,\\|\\, p^{s,(T)}\\big)`,
+          `L(N, D) = E + \\frac{A}{N^{\\alpha}} + \\frac{B}{D^{\\beta}}`,
+          `q = \\operatorname{round}(w/s),\\quad s = \\frac{\\max|w|}{2^{b-1}-1}`
+        ]
       ),
     }),
   ];

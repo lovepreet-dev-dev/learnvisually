@@ -684,6 +684,7 @@ th {
   font-weight: 700;
   background: rgba(255, 255, 255, 0.5);
 }
+[data-theme="dark"] th { background: rgba(255, 255, 255, 0.04); }
 
 td code, .mono { font-family: var(--mono); font-size: 0.88em; }
 
@@ -2774,3 +2775,15 @@ button.tl-token:hover { border-color: var(--accent); }
 }
 .g-tok sup { font-size: 0.62rem; margin-left: 2px; color: var(--warm); font-family: var(--body); font-weight: 700; }
 .g-tok-multi { outline: 1px dashed var(--warm); }
+
+/* ── Small LLM guide (small-llm-guide.js) ── */
+.sl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 0.88rem; color: var(--ink-soft); }
+.sl-row > span:first-child { min-width: 180px; }
+.sl-spark { width: 100%; max-width: 380px; height: auto; display: block; border-radius: var(--radius-xs); background: var(--c-plot-bg); }
+.g-mini th { background: transparent; letter-spacing: 0.06em; font-size: 0.7rem; }
+.tl-heat-cell.sl-pruned { background: transparent; color: var(--faint); border: 1px dashed var(--line-strong); }
+.g-widget > svg { width: 100%; height: auto; border-radius: var(--radius-xs); background: var(--c-plot-bg); }
+.g-three .g-three { gap: 12px; }
+@media (max-width: 760px) {
+  .sl-row > span:first-child { min-width: 0; width: 100%; }
+}

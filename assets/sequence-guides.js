@@ -88,6 +88,7 @@
       }
     });
     sync();
+    return sync;
   }
 
   /* ── Real tokenizers, loaded on demand ───────────────────────── */
@@ -810,8 +811,8 @@
             { q: "Roughly how many parameters does a 24-layer model of width 1024 have, with a 50,000-token vocabulary?", a: "12 · 24 · 1024² ≈ 302 M, plus 50,000 · 1024 ≈ 51 M, so about 353 M (close to GPT-2 medium's 355 M)." },
           ])}
           <div class="tl-next">
-            <div><div class="eyebrow">Back to the start</div><strong>The whole series</strong><p class="caption">Primer → Attention → Transformer → LLMs.</p></div>
-            <a class="button primary" href="./algorithm.html?id=sequence-primer">Go to the Primer</a>
+            <div><div class="eyebrow">Next guide</div><strong>Small LLMs: distillation, pruning and quantization</strong><p class="caption">How small models get good: training past Chinchilla, learning from a teacher, pruning and fewer bits per weight.</p></div>
+            <a class="button primary" href="./algorithm.html?id=small-llm">Continue to Small LLMs →</a>
           </div>
         `)}
       `;
@@ -1023,6 +1024,9 @@
     U().onRedraw(render);
     ui.startProgressBar();
   }
+
+  /* Widget helpers shared with later guides (small-llm-guide.js). */
+  root.MLGuideWidgets = { esc, widget, range, segmented, mountWidget, whenNear, fmtInt, fmtBig, fmtBytes };
 
   root.MLExtraLabs = Object.assign(root.MLExtraLabs || {}, {
     "sequence-primer": mountPrimerGuide,
