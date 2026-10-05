@@ -840,7 +840,13 @@
       id: "activation-functions",
       title: "Activation Functions",
       category: "neural",
-      engine: "activation",
+      engine: "activation-guide",
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Neural network basics, 1 of 3",
+        heading: "Activation functions, from one neuron to deep networks",
+        meta: ["9 chapters", "≈ 25 min read", "7 editable widgets", "Needs: nothing but a slope"],
+      },
       subtitle: "Without a non-linearity, a deep network collapses into a single linear layer. Compare the choices and their gradients.",
       summary:
         "Without a non-linearity, a deep network collapses into a single linear layer. Compare the choices and their gradients.",
@@ -863,7 +869,13 @@
       id: "gradient-descent",
       title: "Gradient Descent",
       category: "neural",
-      engine: "gradient-descent",
+      engine: "gradient-descent-guide",
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Neural network basics, 2 of 3",
+        heading: "Gradient descent: how networks learn",
+        meta: ["9 chapters", "≈ 25 min read", "6 editable widgets", "Plain, momentum, Adam and mini-batch"],
+      },
       subtitle: "Follow the slope downhill. Watch the learning rate decide between crawling, converging, and diverging.",
       summary:
         "Follow the slope downhill. Watch the learning rate decide between crawling, converging, and diverging.",
@@ -885,7 +897,13 @@
       id: "backpropagation",
       title: "Backpropagation",
       category: "neural",
-      engine: "backprop",
+      engine: "backprop-guide",
+      layout: "guide",
+      guide: {
+        kicker: "Guide · Neural network basics, 3 of 3",
+        heading: "Backpropagation, one number at a time",
+        meta: ["10 chapters", "≈ 30 min read", "Every number of a training step", "Full network playground"],
+      },
       subtitle: "The chain rule run backwards through a network — every gradient computed from your own inputs, weights and targets.",
       summary:
         "The chain rule run backwards through a network — every gradient computed from your own inputs, weights and targets.",

@@ -1206,6 +1206,9 @@
     ui.startProgressBar();
   }
 
+  /* Plot helpers shared with nn-guides.js. */
+  root.MLPlot = { frame, linePath, niceTicks, sparkline, restoreInputs, row };
+
   root.MLExtraLabs = Object.assign(root.MLExtraLabs || {}, {
     "small-llm": mountSmallLlmGuide,
   });

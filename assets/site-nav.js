@@ -317,13 +317,25 @@
     const sidebar = document.getElementById("site-sidebar");
     const toggle = document.getElementById("sidebar-toggle");
 
-    const stored = window.localStorage.getItem("mls-sidebar");
-    if (stored === "closed") document.body.classList.add("sidebar-closed");
+    /* Closed by default so pages open at full width; it stays open
+       only after the reader opens it. Stored under a new key so the
+       old default ("open") from earlier visits does not carry over. */
+    let stored = null;
+    try {
+      stored = window.localStorage.getItem("mls-sidebar-v2");
+    } catch (error) {
+      stored = null;
+    }
+    if (stored !== "open") document.body.classList.add("sidebar-closed");
 
     if (toggle) {
       toggle.addEventListener("click", () => {
         const closed = document.body.classList.toggle("sidebar-closed");
-        window.localStorage.setItem("mls-sidebar", closed ? "closed" : "open");
+        try {
+          window.localStorage.setItem("mls-sidebar-v2", closed ? "closed" : "open");
+        } catch (error) {
+          /* Private mode: the choice just isn't remembered. */
+        }
       });
     }
 

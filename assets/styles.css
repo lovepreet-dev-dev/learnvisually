@@ -2787,3 +2787,22 @@ button.tl-token:hover { border-color: var(--accent); }
 @media (max-width: 760px) {
   .sl-row > span:first-child { min-width: 0; width: 100%; }
 }
+
+/* ── Neural network guides (nn-guides.js) ── */
+.sl-multiples { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.sl-multiples svg { width: 100%; height: auto; border-radius: var(--radius-xs); background: var(--c-plot-bg); }
+.g-playground { margin: 18px 0; }
+.g-playground .lab { margin: 0; }
+@media (max-width: 760px) {
+  .sl-multiples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.sl-halo text { paint-order: stroke; stroke: var(--c-plot-bg); stroke-width: 4px; stroke-linejoin: round; }
+/* Widgets must shrink to the column on phones; button rows wrap. */
+.g-widget { grid-template-columns: minmax(0, 1fr); }
+.g-actions { flex-wrap: wrap; }
+.g-widget .g-seg { max-width: 100%; }
+.g-playground .lab-grid, .g-playground .two-column { grid-template-columns: minmax(0, 1fr); }
+.g-playground .lab-grid > *, .g-playground .two-column > * { min-width: 0; }
+@media (max-width: 760px) {
+  .g-playground .lab { padding: 12px; }
+}

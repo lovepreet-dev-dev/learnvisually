@@ -8596,7 +8596,7 @@
   /* Labs that live in their own files (transformer-labs.js) register on
      window.MLExtraLabs and receive the shared rendering helpers. */
   Object.entries(window.MLExtraLabs || {}).forEach(([name, mount]) => {
-    if (!engines[name]) engines[name] = (node) => mount(node, { renderFormulaCards });
+    if (!engines[name]) engines[name] = (node) => mount(node, { renderFormulaCards, engines });
   });
   if (engines[definition.engine]) {
     engines[definition.engine](workspace);
